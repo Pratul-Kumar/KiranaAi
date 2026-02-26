@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request, Header, HTTPException, Depends
+from fastapi import APIRouter, Request, Header, HTTPException, Depends, Query
+from fastapi.responses import Response
 from app.core.config import get_settings
 from app.services.ai.ai_service import AIServiceLayer
 from app.services.inventory_service import InventoryOrchestrator
 from app.services.khata_service import KhataService
+from app.db.supabase import get_supabase_client
 import logging
 
 router = APIRouter()
@@ -30,8 +32,15 @@ async def whatsapp_webhook(request: Request, x_hub_signature: str = Header(None)
         from_phone = message["from"]
         msg_type = message["type"] # 'text' or 'audio'
         
-        # In a real app, logic to resolve store_id from from_phone or metadata
-        store_id = "test-store-id-123" # Mock
+        # 2. Resolve store_id from from_phone
+        db = get_supabase_client()
+        store_res = db.table("stores").select("id").eq("contact_phone", from_phone).execute()
+        
+        if not store_res.data:
+            logger.warning(f"Message from unknown number: {from_phone}. Ignoring.")
+            return {"status": "unknown_sender"}
+            
+        store_id = store_res.data[0]["id"]
         
         if msg_type == "audio":
             audio_url = message["audio"]["url"]
@@ -65,8 +74,15 @@ async def whatsapp_webhook(request: Request, x_hub_signature: str = Header(None)
         return {"status": "error", "message": "Invalid format"}
 
 @router.get("/webhook")
-async def verify_webhook(mode: str = None, token: str = None, challenge: str = None):
+async def verify_webhook(
+    hub_mode: str = Query(None, alias="hub.mode"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
+    hub_challenge: str = Query(None, alias="hub.challenge"),
+):
     """WhatsApp webhook verification."""
-    if mode == "subscribe" and token == settings.WHATSAPP_VERIFY_TOKEN:
-        return int(challenge)
+    if hub_mode == "subscribe" and hub_verify_token == settings.WHATSAPP_VERIFY_TOKEN:
+        logger.info("Webhook verified successfully!")
+        return Response(content=hub_challenge, media_type="text/plain")
+    
+    logger.warning(f"Webhook verification failed. Mode: {hub_mode}, Token: {hub_verify_token}")
     raise HTTPException(status_code=403, detail="Verification failed")
