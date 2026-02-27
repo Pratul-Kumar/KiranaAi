@@ -99,7 +99,21 @@ CREATE TABLE demand_signals (
     calculated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 10. Audit Log & Compliance
+-- 10. Reorder Requests (Interactive Order Flow)
+CREATE TABLE reorder_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
+    supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
+    sku_name TEXT NOT NULL,
+    quantity DECIMAL DEFAULT 1,
+    unit_price DECIMAL,
+    total_amount DECIMAL,
+    status TEXT DEFAULT 'pending', -- pending, approved, declined, pending_price
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 11. Audit Log & Compliance
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     action TEXT NOT NULL,

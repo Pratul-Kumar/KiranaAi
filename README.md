@@ -10,10 +10,11 @@ Digital Store Manager is a lean micro-SaaS designed to modernize traditional ret
 
 | Feature | Description |
 | :--- | :--- |
-| **🎙️ Voice-First Intent** | SLM-based parsing of Hinglish commands (*"5 packet doodh update karo"*) to automate stock updates. |
+| **🎙️ Voice-First Intent** | SLM-based parsing of Hinglish commands to automate stock updates. |
+| **📦 Interactive Reorder** | Multi-role support for Store Owners and Distributors with interactive "Approve/Decline/Update" buttons. |
+| **📜 Smart Tax Invoicing** | Automated tax invoice generation with price persistence and instant sharing between distributor and owner. |
 | **📈 Demand Sensing** | Predictive engine that monitors sales velocity and triggers proactive alerts for high-demand periods. |
 | **📔 Digital Khata** | Automated customer ledger management with dynamic lead scoring for credit risk assessment. |
-| **🔔 Proactive Nudges** | Automated WhatsApp reminders for payment collection and re-engagement of dormant customers. |
 | **🛡️ Privacy First** | Built-in GDPR/Consent management with easy data deletion for compliance. |
 
 ---

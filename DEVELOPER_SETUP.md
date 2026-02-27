@@ -45,7 +45,18 @@ celery -A app.worker.celery_worker worker --loglevel=info
 docker-compose up --build
 ```
 
-## 5. Testing the Webhook
+## 5. WhatsApp Reorder Workflow
+The system supports an interactive loop between Store Owners and Distributors:
+1. **Owner Request**: Sends a message like "10 Bread req".
+2. **Distributor Notification**: Receives interactive buttons (**Approve**, **Decline**, **Update Price**).
+3. **Price Memory**: The system remembers the last agreed price for future orders.
+4. **Billing**: Once approved, the distributor generates a Tax Invoice which is automatically shared with the Owner.
+
+## 6. Database Migrations
+1. Execute the full SQL schema found in [`backend/data/schema.sql`](backend/data/schema.sql).
+2. This single file now contains all core tables plus the new **Reorder & Billing** tracking system.
+
+## 7. Testing the Webhook
 To test the webhook locally:
 1. Start an ngrok tunnel: `ngrok http 8000`.
 2. Configure your Meta App webhook with the ngrok URL: `https://<ngrok-id>.ngrok-free.app/api/v1/whatsapp/webhook`.

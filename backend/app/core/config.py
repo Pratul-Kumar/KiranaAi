@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     
     # AI / SLM
     AI_MODEL_ENDPOINT: str = "http://localhost:11434/api/generate"
+    AI_MODEL_NAME: str = "mistral"
     BHASHINI_API_KEY: str = ""
     
     # Redis
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     # WhatsApp
     WHATSAPP_VERIFY_TOKEN: str = "digital_store_manager_verify"
     WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = "972312215974570"
 
     class Config:
         env_file = ".env"
