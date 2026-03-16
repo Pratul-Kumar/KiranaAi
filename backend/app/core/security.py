@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -8,10 +9,13 @@ from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/login")
+
+# tokenUrl tells Swagger where to POST credentials for the Authorize button
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/token")
 
 
 def hash_password(password: str) -> str:
@@ -31,17 +35,35 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
 
 
-async def get_current_admin(token: str = Depends(oauth2_scheme)) -> dict:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+def verify_token(token: str) -> dict:
+    """Decode and validate a JWT. Raises HTTPException on any failure."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        return {"email": email}
-    except JWTError:
-        raise credentials_exception
+        email: Optional[str] = payload.get("sub")
+        if not email:
+            logger.warning("JWT missing 'sub' claim")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token missing subject claim",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return payload
+    except JWTError as exc:
+        logger.warning("JWT decode failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+async def get_current_admin(token: str = Depends(oauth2_scheme)) -> dict:
+    """FastAPI dependency — validates the Bearer token and returns the admin payload."""
+    if not token:
+        logger.warning("Request arrived with no Bearer token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated — provide Authorization: Bearer <token>",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return verify_token(token)

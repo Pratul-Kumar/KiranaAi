@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ZnShop Admin{% endblock %}</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; height: 56px; gap: 2rem; }
+    nav .brand { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    nav .nav-links { display: flex; gap: 1.5rem; flex: 1; }
+    nav .nav-links a { color: var(--muted); font-size: .9rem; padding: 4px 0; border-bottom: 2px solid transparent; }
+    nav .nav-links a:hover, nav .nav-links a.active { color: var(--text); border-color: var(--primary); text-decoration: none; }
+    nav .logout { margin-left: auto; }
+    nav .logout a { font-size: .85rem; color: var(--danger); }
+
+    /* ── Layout ── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h1 { font-size: 1.6rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+
+    /* ── Cards ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; text-align: center; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    .stat-card .label { font-size: .8rem; color: var(--muted); margin-top: .25rem; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .4rem; }
+    input, select, textarea {
+      width: 100%; padding: .6rem .9rem; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: .95rem;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--primary); }
+    .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem 1.2rem;
+           border: none; border-radius: 6px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sm { padding: .3rem .7rem; font-size: .8rem; }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th { text-align: left; padding: .7rem 1rem; background: var(--bg); color: var(--muted); font-weight: 600; }
+    td { padding: .65rem 1rem; border-top: 1px solid var(--border); }
+    tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* ── Alerts ── */
+    .flash { padding: .75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: .9rem; }
+    .flash-success { background: rgba(34,197,94,.15); border: 1px solid var(--success); color: var(--success); }
+    .flash-error   { background: rgba(239,68,68,.15);  border: 1px solid var(--danger);  color: var(--danger); }
+
+    /* ── Login ── */
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-card { width: 360px; }
+    .login-card h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.4rem; }
+    .login-card .subtitle { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 2rem; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .75rem; font-weight: 600; }
+    .badge-low  { background: rgba(34,197,94,.15);  color: var(--success); }
+    .badge-high { background: rgba(239,68,68,.15);  color: var(--danger); }
+  </style>
+</head>
+<body>
+{% block nav %}
+  {% if session_email %}
+  <nav>
+    <span class="brand">🏪 ZnShop</span>
+    <div class="nav-links">
+      <a href="/admin" {% if active=='home' %}class="active"{% endif %}>Dashboard</a>
+      <a href="/admin/stores" {% if active=='stores' %}class="active"{% endif %}>Stores</a>
+      <a href="/admin/vendors" {% if active=='vendors' %}class="active"{% endif %}>Vendors</a>
+      <a href="/admin/inventory" {% if active=='inventory' %}class="active"{% endif %}>Inventory</a>
+      <a href="/admin/khata" {% if active=='khata' %}class="active"{% endif %}>Khata</a>
+    </div>
+    <div class="logout"><a href="/admin/logout">Logout ({{ session_email }})</a></div>
+  </nav>
+  {% endif %}
+{% endblock %}
+
+{% block body %}{% endblock %}
+</body>
+</html>

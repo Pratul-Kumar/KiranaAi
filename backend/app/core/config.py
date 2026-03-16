@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # Admin / Security
     SECRET_KEY: str = "change-me-in-production"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     ADMIN_EMAIL: str = "admin@znshop.local"
     ADMIN_PASSWORD: str = "changeme"
 

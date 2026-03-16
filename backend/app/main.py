@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.logging_config import setup_logging
 from app.api.v1 import whatsapp, compliance
 from app.api.v1 import admin, inventory, alerts, khata
+from app.dashboard.router import router as dashboard_router
 
 setup_logging()
 
@@ -60,8 +61,21 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(alerts.router,     prefix="/api/v1")   # router prefix: /alerts
 app.include_router(khata.router,      prefix="/api/v1")   # router prefix: /khata
+app.include_router(dashboard_router)                       # HTML dashboard at /admin
+
+
+@app.on_event("startup")
+async def _log_routes() -> None:
+    from fastapi.routing import APIRoute
+    routes = [r for r in app.routes if isinstance(r, APIRoute)]
+    logger.info("=== Registered routes (%d) ===", len(routes))
+    for r in sorted(routes, key=lambda x: x.path):
+        methods = ",".join(sorted(r.methods or []))
+        logger.info("  %-8s %s", methods, r.path)
 
 
 @app.get("/health", tags=["Health"])
 async def health() -> dict:
-    return {"status": "ok", "version": app.version}
+    from fastapi.routing import APIRoute
+    route_count = sum(1 for r in app.routes if isinstance(r, APIRoute))
+    return {"status": "ok", "service": "ZnShop API", "version": app.version, "routes": route_count}

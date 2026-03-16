@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ZnShop Admin{% endblock %}
+{% block body %}
+<div class="container">
+  <h1>Dashboard</h1>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="value">{{ stats.stores }}</div>
+      <div class="label">Stores</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{{ stats.vendors }}</div>
+      <div class="label">Vendors</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{{ stats.customers }}</div>
+      <div class="label">Customers</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{{ stats.alerts }}</div>
+      <div class="label">Demand Alerts</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+    <!-- Recent stores -->
+    <div class="card">
+      <h2>Recent Stores</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Owner</th><th>Phone</th></tr></thead>
+          <tbody>
+            {% for s in recent_stores %}
+            <tr>
+              <td>{{ s.name }}</td>
+              <td>{{ s.owner_name }}</td>
+              <td>{{ s.contact_phone }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" style="color:var(--muted)">No stores yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <a href="/admin/stores" style="display:inline-block;margin-top:.75rem;font-size:.85rem">View all →</a>
+    </div>
+
+    <!-- Recent alerts -->
+    <div class="card">
+      <h2>Latest Demand Alerts</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>SKU</th><th>Score</th><th>Time</th></tr></thead>
+          <tbody>
+            {% for a in recent_alerts %}
+            <tr>
+              <td>{{ a.sku_id }}</td>
+              <td>
+                <span class="badge {% if a.demand_score > 2.5 %}badge-high{% else %}badge-low{% endif %}">
+                  {{ a.demand_score }}
+                </span>
+              </td>
+              <td style="font-size:.8rem;color:var(--muted)">{{ a.created_at[:16] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" style="color:var(--muted)">No alerts</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

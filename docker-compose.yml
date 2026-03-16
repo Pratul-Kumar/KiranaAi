@@ -73,12 +73,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: znshop_redis
-    ports:
-      - "6379:6379"
+    # No host port binding — services connect via Docker network hostname `redis`.
+    # To access Redis from your HOST machine (e.g. redis-cli), uncomment the lines below:
+    # ports:
+    #   - "6380:6379"   # mapped to 6380 to avoid conflict with local Redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
-
