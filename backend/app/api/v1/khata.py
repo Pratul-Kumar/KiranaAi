@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 _khata_service = KhataService()
 
 
-class KhataAddRequest(BaseModel):
+class KhataTextRequest(BaseModel):
     store_id: str
     text: str
 
 
-@router.post("/add")
-async def add_khata_entry(body: KhataAddRequest) -> dict:
+@router.post("/add", dependencies=[Depends(get_current_admin)])
+async def add_khata_entry(body: KhataTextRequest) -> dict:
     """
     Parses a free-text Khata entry (Hindi/English) via SLM and updates the ledger.
     Example: "Ramesh ne 200 diya" → PAYMENT_RECEIVED ₹200 for Ramesh.
