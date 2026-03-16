@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
 
 from app.core.config import get_settings
-from app.core.security import create_access_token
+from app.core.security import create_access_token, verify_password
 from app.db.supabase import get_supabase_admin_client, get_supabase_client
 
 router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
@@ -32,10 +32,17 @@ def _get_session_email(znshop_session: str | None) -> str | None:
     if not znshop_session:
         return None
     try:
-        payload = jwt.decode(znshop_session, settings.SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(znshop_session, settings.signing_key, algorithms=["HS256"])
         return payload.get("sub")
     except JWTError:
         return None
+
+
+def _is_valid_admin_password(password: str) -> bool:
+    hashed_password = getattr(settings, "ADMIN_PASSWORD_HASH", "")
+    if isinstance(hashed_password, str) and hashed_password.strip():
+        return verify_password(password, hashed_password)
+    return password == settings.ADMIN_PASSWORD
 
 
 def _require_session(znshop_session: str | None = Cookie(default=None)) -> str:
@@ -67,7 +74,7 @@ async def login_submit(
     email: str = Form(...),
     password: str = Form(...),
 ):
-    if email != settings.ADMIN_EMAIL or password != settings.ADMIN_PASSWORD:
+    if email != settings.ADMIN_EMAIL or not _is_valid_admin_password(password):
         logger.warning("Dashboard login failed for: %s", email)
         return templates.TemplateResponse("login.html", {
             "request": request, "session_email": None,
@@ -79,6 +86,7 @@ async def login_submit(
     response.set_cookie(
         COOKIE_NAME, token,
         httponly=True, samesite="lax",
+        secure=not settings.DEBUG,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     logger.info("Dashboard login: %s", email)

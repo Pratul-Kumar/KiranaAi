@@ -21,10 +21,10 @@ db = get_supabase_admin_client()
 STORES = [
     {"name": "Ravi Kirana",          "contact_phone": "919534170001", "owner_name": "Ravi Kumar",       "address": "Sector 12, Delhi"},
     {"name": "Gupta Store",          "contact_phone": "919534170002", "owner_name": "Suresh Gupta",     "address": "MG Road, Lucknow"},
-    {"name": "Patel Mart",           "contact_phone": "919534170003", "owner_name": "Amrit Patel",      "address": "CG Road, Ahmedabad"},
-    {"name": "Lakshmi Store",        "contact_phone": "919534170004", "owner_name": "Lakshmi Devi",     "address": "Anna Nagar, Chennai"},
-    {"name": "Verma General Store",  "contact_phone": "919534170005", "owner_name": "Rajesh Verma",     "address": "Connaught Place, Delhi"},
-    {"name": "Sai Kirana",           "contact_phone": "919534170006", "owner_name": "Sai Baba",         "address": "Banjara Hills, Hyderabad"},
+    {"name": "Lakshmi Mart",         "contact_phone": "919534170003", "owner_name": "Lakshmi Devi",     "address": "Anna Nagar, Chennai"},
+    {"name": "Patel Kirana",         "contact_phone": "919534170004", "owner_name": "Amrit Patel",      "address": "CG Road, Ahmedabad"},
+    {"name": "Sai General Store",    "contact_phone": "919534170005", "owner_name": "Sai Prasad",       "address": "Banjara Hills, Hyderabad"},
+    {"name": "Verma Stores",         "contact_phone": "919534170006", "owner_name": "Rajesh Verma",     "address": "Connaught Place, Delhi"},
 ]
 
 VENDORS = [
@@ -33,7 +33,7 @@ VENDORS = [
     {"name": "Rice Supplier",        "phone": "919534171003", "category": "grains"},
     {"name": "Tea Supplier",         "phone": "919534171004", "category": "beverages"},
     {"name": "Oil Supplier",         "phone": "919534171005", "category": "oils"},
-    {"name": "Biscuit Supplier",     "phone": "919534171006", "category": "snacks"},
+    {"name": "Biscuit Distributor",  "phone": "919534171006", "category": "snacks"},
     {"name": "Soap Distributor",     "phone": "919534171007", "category": "personal_care"},
     {"name": "Cold Drink Supplier",  "phone": "919534171008", "category": "beverages"},
 ]

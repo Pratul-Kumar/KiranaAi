@@ -33,8 +33,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_ORIGINS != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -43,7 +43,17 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.perf_counter()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.exception(
+            "REQUEST_ERROR | %s %s | %.1fms",
+            request.method,
+            request.url.path,
+            duration_ms,
+        )
+        raise
     duration_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "REQUEST | %s %s | %d | %.1fms",
@@ -76,6 +86,4 @@ async def _log_routes() -> None:
 
 @app.get("/health", tags=["Health"])
 async def health() -> dict:
-    from fastapi.routing import APIRoute
-    route_count = sum(1 for r in app.routes if isinstance(r, APIRoute))
-    return {"status": "ok", "service": "ZnShop API", "version": app.version, "routes": route_count}
+    return {"status": "ok", "service": "ZnShop API", "version": app.version}

@@ -18,7 +18,7 @@ class SLMService:
     """
     
     def __init__(self):
-        self.endpoint = settings.AI_MODEL_ENDPOINT
+        self.endpoint = settings.resolved_ai_model_endpoint
         self.model = settings.AI_MODEL_NAME
         self.default_timeout = 30.0
 

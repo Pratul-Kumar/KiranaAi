@@ -32,13 +32,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode["exp"] = expire
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+    return jwt.encode(to_encode, settings.signing_key, algorithm="HS256")
 
 
 def verify_token(token: str) -> dict:
     """Decode and validate a JWT. Raises HTTPException on any failure."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.signing_key, algorithms=["HS256"])
         email: Optional[str] = payload.get("sub")
         if not email:
             logger.warning("JWT missing 'sub' claim")

@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM python:3.10-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
@@ -10,7 +10,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # ---- Runtime Stage ----
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -19,8 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app/backend
+ENV PORT=8000
 
-COPY backend/app ./app
+COPY backend ./backend
 COPY dashboard ./dashboard
 
 RUN adduser --disabled-password --gecos "" appuser \
@@ -29,4 +31,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

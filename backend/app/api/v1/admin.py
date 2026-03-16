@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def _is_valid_admin_password(password: str) -> bool:
+    hashed_password = getattr(settings, "ADMIN_PASSWORD_HASH", "")
+    if isinstance(hashed_password, str) and hashed_password.strip():
+        return verify_password(password, hashed_password)
+    return password == settings.ADMIN_PASSWORD
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Public routes (no auth required)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -64,7 +71,7 @@ async def admin_token(form: OAuth2PasswordRequestForm = Depends()) -> TokenRespo
     OAuth2 standard form-data login. Swagger's Authorize button calls this endpoint.
     Fields: username (= email), password.
     """
-    if form.username != settings.ADMIN_EMAIL or form.password != settings.ADMIN_PASSWORD:
+    if form.username != settings.ADMIN_EMAIL or not _is_valid_admin_password(form.password):
         logger.warning("Failed Swagger login attempt for: %s", form.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -83,7 +90,7 @@ async def admin_token(form: OAuth2PasswordRequestForm = Depends()) -> TokenRespo
 )
 async def admin_login(body: AdminLoginRequest) -> TokenResponse:
     """JSON body login for curl and API clients."""
-    if body.email != settings.ADMIN_EMAIL or body.password != settings.ADMIN_PASSWORD:
+    if body.email != settings.ADMIN_EMAIL or not _is_valid_admin_password(body.password):
         logger.warning("Failed login attempt for: %s", body.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
