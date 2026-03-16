@@ -1,11 +1,13 @@
-from app.db.supabase import get_supabase_admin_client
-from app.services.ai.slm_service import SLMService
-from app.schemas.ai_schemas import AIIntentResponse, KhataParsedRecord, KhataActionEnum
-import logging
 import json
+import logging
 from datetime import datetime
 
+from app.db.supabase import get_supabase_admin_client
+from app.models.schemas import KhataParsedRecord, KhataActionEnum
+from app.services.ai.slm_service import SLMService
+
 logger = logging.getLogger(__name__)
+
 
 class KhataService:
     """Handles production-grade khata digitization and LeadScore calculation."""

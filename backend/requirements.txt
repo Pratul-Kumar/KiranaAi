@@ -1,12 +1,37 @@
-fastapi
-uvicorn
-pydantic
-pydantic-settings
-supabase
-httpx
-redis
-python-dotenv
-python-multipart
-celery
-pytest
-asyncio
+# Web Framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# Settings & Env
+pydantic==2.10.6
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# Database
+supabase==2.4.3
+
+# HTTP Client
+httpx==0.27.0
+
+# AI / SLM
+tenacity==8.3.0
+
+# Task Queue
+celery==5.4.0
+redis==5.0.4
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Rate Limiting
+slowapi==0.1.9
+
+# Admin Dashboard
+streamlit==1.35.0
+
+# Testing
+pytest==8.2.0
+pytest-asyncio==0.23.7
+

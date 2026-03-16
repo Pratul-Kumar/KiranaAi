@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
-from app.db.supabase import get_supabase_admin_client
 import logging
 
-router = APIRouter()
+from fastapi import APIRouter, HTTPException
+
+from app.core.security import get_current_admin
+from app.db.supabase import get_supabase_admin_client
+
+router = APIRouter(prefix="/customers", tags=["Compliance"])
 logger = logging.getLogger(__name__)
 
 @router.delete("/{customer_id}")

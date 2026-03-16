@@ -1,7 +1,7 @@
 from app.services.ai.slm_service import SLMService
 from app.services.ai.speech_service import SpeechService
 from app.services.ai.observability import AIObservability
-from app.schemas.ai_schemas import AIIntentResponse, IntentEnum
+from app.models.schemas import AIIntentResponse, IntentEnum
 import logging
 
 logger = logging.getLogger(__name__)

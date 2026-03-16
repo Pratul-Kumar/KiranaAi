@@ -3,11 +3,20 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+_anon_client: Client | None = None
+_admin_client: Client | None = None
+
+
 def get_supabase_client() -> Client:
-    """Returns a Supabase client using the anon key."""
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    global _anon_client
+    if _anon_client is None:
+        _anon_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    return _anon_client
+
 
 def get_supabase_admin_client() -> Client:
-    """Returns a Supabase client using the service role key for admin tasks. Fallback to anon key if missing."""
-    key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
-    return create_client(settings.SUPABASE_URL, key)
+    global _admin_client
+    if _admin_client is None:
+        key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
+        _admin_client = create_client(settings.SUPABASE_URL, key)
+    return _admin_client

@@ -1,130 +1,172 @@
--- Digital Store Manager - SQL Schema (Supabase/PostgreSQL)
+-- ============================================================
+-- ZnShop — Full Database Schema
+-- Run in Supabase SQL Editor (enable ltree extension first)
+-- ============================================================
 
--- Enable LTREE extension for hierarchy if needed (optional, using path or JSONB otherwise)
+-- Prerequisites
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS ltree;
 
--- 1. Stores
-CREATE TABLE stores (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    owner_name TEXT,
-    contact_phone TEXT UNIQUE NOT NULL,
-    location_lat DECIMAL,
-    location_long DECIMAL,
-    address JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ============================================================
+-- MULTI-TENANT CORE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS stores (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name            TEXT NOT NULL,
+    contact_phone   TEXT UNIQUE NOT NULL,
+    owner_name      TEXT NOT NULL,
+    address         TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Customers
-CREATE TABLE customers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    consent_flag BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    metadata JSONB,
-    UNIQUE(store_id, phone)
+CREATE TABLE IF NOT EXISTS vendors (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name        TEXT NOT NULL,
+    phone       TEXT UNIQUE NOT NULL,
+    category    TEXT NOT NULL,  -- e.g. dairy, snacks, beverages
+    created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Suppliers
-CREATE TABLE suppliers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID REFERENCES stores(id),
-    name TEXT NOT NULL,
-    contact_person TEXT,
-    phone TEXT,
-    category TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS store_vendors (
+    store_id    UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    vendor_id   UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (store_id, vendor_id)
 );
 
--- 4. SKUs (Hierarchical Structure)
-CREATE TABLE skus (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    category_path LTREE, -- e.g. "FMCG.Beverages.Tea"
-    ean_code TEXT,
-    unit TEXT DEFAULT 'pcs',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    -- embedding VECTOR(1536) -- Uncomment if pgvector is enabled
+-- ============================================================
+-- INVENTORY
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS skus (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id        UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    name            TEXT NOT NULL,
+    category_path   ltree,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (store_id, name)
 );
 
--- 5. Inventory
-CREATE TABLE inventory (
-    sku_id UUID PRIMARY KEY REFERENCES skus(id) ON DELETE CASCADE,
-    stock_level DECIMAL DEFAULT 0,
-    reorder_point DECIMAL DEFAULT 5,
-    abc_classification CHAR(1) CHECK (abc_classification IN ('A', 'B', 'C')),
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS inventory (
+    sku_id          UUID PRIMARY KEY REFERENCES skus(id) ON DELETE CASCADE,
+    stock_level     NUMERIC NOT NULL DEFAULT 0,
+    last_updated    TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Transactions
-CREATE TABLE transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID REFERENCES stores(id),
-    customer_id UUID REFERENCES customers(id),
-    items JSONB NOT NULL, -- List of {sku_id, quantity, price}
-    total_amount DECIMAL NOT NULL,
-    payment_type TEXT CHECK (payment_type IN ('cash', 'khata', 'digital')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS lost_sales (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id        UUID REFERENCES stores(id) ON DELETE CASCADE,
+    sku_name        TEXT,
+    requested_qty   NUMERIC,
+    detected_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Khata Ledger
-CREATE TABLE khata_ledger (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
-    balance DECIMAL DEFAULT 0, -- Positive means customer owes shop
-    last_payment_date TIMESTAMP WITH TIME ZONE,
-    lead_score DECIMAL DEFAULT 0, -- Calculated lead/reliability score
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ============================================================
+-- CUSTOMERS & KHATA
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS customers (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id        UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+    name            TEXT NOT NULL,
+    phone           TEXT,
+    consent_flag    BOOLEAN DEFAULT TRUE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (store_id, phone)
 );
 
--- 8. Lost Sales
-CREATE TABLE lost_sales (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID REFERENCES stores(id),
-    sku_name TEXT,
-    requested_qty DECIMAL,
-    detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS khata_ledger (
+    customer_id         UUID PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE,
+    balance             NUMERIC DEFAULT 0,
+    lead_score          NUMERIC DEFAULT 0,
+    last_payment_date   TIMESTAMPTZ,
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. Demand Signals
-CREATE TABLE demand_signals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sku_id UUID REFERENCES skus(id),
-    demand_score DECIMAL DEFAULT 0,
-    velocity DECIMAL,
-    external_factors JSONB, -- {weather: 'Rainy', festival: 'Holi'}
-    calculated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS transactions (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id     UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    store_id        UUID NOT NULL REFERENCES stores(id),
+    total_amount    NUMERIC NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. Reorder Requests (Interactive Order Flow)
-CREATE TABLE reorder_requests (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
-    supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
-    sku_name TEXT NOT NULL,
-    quantity DECIMAL DEFAULT 1,
-    unit_price DECIMAL,
-    total_amount DECIMAL,
-    status TEXT DEFAULT 'pending', -- pending, approved, declined, pending_price
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- ============================================================
+-- REORDER WORKFLOW
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS reorder_requests (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id        UUID NOT NULL REFERENCES stores(id),
+    supplier_id     UUID NOT NULL REFERENCES vendors(id),
+    sku_name        TEXT NOT NULL,
+    quantity        NUMERIC NOT NULL DEFAULT 1,
+    unit_price      NUMERIC,
+    total_amount    NUMERIC,
+    status          TEXT NOT NULL DEFAULT 'pending',  -- pending | pending_price | approved | declined
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. Audit Log & Compliance
-CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    action TEXT NOT NULL,
-    table_name TEXT,
-    record_id UUID,
-    performed_by UUID,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    details JSONB
+-- ============================================================
+-- DEMAND SENSING
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS demand_signals (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sku_id          UUID REFERENCES skus(id) ON DELETE CASCADE,
+    demand_score    NUMERIC NOT NULL,
+    velocity        NUMERIC,
+    external_factors JSONB,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes
-CREATE INDEX idx_skus_hierarchy ON skus USING GIST (category_path);
-CREATE INDEX idx_transactions_store ON transactions(store_id);
-CREATE INDEX idx_inventory_abc ON inventory(abc_classification);
+-- ============================================================
+-- AI OBSERVABILITY
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS ai_audit_logs (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    store_id    TEXT,
+    step        TEXT,
+    input       TEXT,
+    output      TEXT,
+    confidence  NUMERIC,
+    reasoning   TEXT,
+    timestamp   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- COMPLIANCE & AUDIT
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action      TEXT NOT NULL,
+    table_name  TEXT,
+    record_id   TEXT,
+    details     JSONB,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- SECURITY (RLS)
+-- ============================================================
+
+-- For this production audit/demo, we disable RLS to allow the 
+-- backend and seed scripts to operate freely. 
+
+ALTER TABLE stores DISABLE ROW LEVEL SECURITY;
+ALTER TABLE vendors DISABLE ROW LEVEL SECURITY;
+ALTER TABLE store_vendors DISABLE ROW LEVEL SECURITY;
+ALTER TABLE skus DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE lost_sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE khata_ledger DISABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE reorder_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE demand_signals DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_audit_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
