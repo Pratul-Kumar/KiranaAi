@@ -12,10 +12,10 @@ This guide deploys ZnShop for continuous public access (API + admin dashboard) o
 
 Set these required variables on the hosting platform:
 
+- `SUPABASE_URL=your_database_url` (MANDATORY)
+- `SUPABASE_KEY=your_database_key` (MANDATORY)
 - `ADMIN_EMAIL=admin@znshop.local`
 - `ADMIN_PASSWORD=changeme` (or use `ADMIN_PASSWORD_HASH` and leave `ADMIN_PASSWORD` unused)
-- `SUPABASE_URL=your_database_url`
-- `SUPABASE_KEY=your_database_key`
 - `JWT_SECRET=secure_secret_key`
 - `REDIS_URL=redis://<your-redis-host>:6379`
 - `OLLAMA_URL=http://<ollama-host>:11434`
