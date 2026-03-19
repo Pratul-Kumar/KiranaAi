@@ -2,8 +2,8 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from src.core.security import get_current_admin
-from src.db.supabase import get_supabase_admin_client
+from backend.app.core.security import get_current_admin
+from backend.app.db.supabase import get_supabase_admin_client
 
 router = APIRouter(prefix="/customers", tags=["Compliance"])
 logger = logging.getLogger(__name__)

@@ -4,8 +4,8 @@ from typing import Optional
 import httpx
 
 from configs.config import get_settings
-from src.db.supabase import get_supabase_admin_client
-from src.services.whatsapp_service import WhatsAppService
+from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.services.whatsapp_service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

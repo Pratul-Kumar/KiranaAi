@@ -1,7 +1,7 @@
-from src.inference.slm_service import SLMService
-from src.inference.speech_service import SpeechService
-from src.inference.observability import AIObservability
-from src.models.schemas import AIIntentResponse, IntentEnum
+from backend.app.inference.slm_service import SLMService
+from backend.app.inference.speech_service import SpeechService
+from backend.app.inference.observability import AIObservability
+from backend.app.models.schemas import AIIntentResponse, IntentEnum
 import logging
 
 logger = logging.getLogger(__name__)

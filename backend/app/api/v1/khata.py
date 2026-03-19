@@ -3,9 +3,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from src.core.security import get_current_admin
-from src.db.supabase import get_supabase_admin_client
-from src.services.khata_service import KhataService
+from backend.app.core.security import get_current_admin
+from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.services.khata_service import KhataService
 
 router = APIRouter(prefix="/khata", tags=["Khata"])
 logger = logging.getLogger(__name__)

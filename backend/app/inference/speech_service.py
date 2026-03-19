@@ -2,7 +2,7 @@ import httpx
 from typing import Optional
 import logging
 from configs.config import get_settings
-from src.models.schemas import TranscriptionResult
+from backend.app.models.schemas import TranscriptionResult
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

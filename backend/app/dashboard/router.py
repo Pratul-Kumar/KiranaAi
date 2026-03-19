@@ -3,6 +3,7 @@ app/dashboard/router.py — HTML Admin Dashboard served at /admin
 Session-cookie based auth (separate from JWT REST API).
 """
 import logging
+import httpx
 from pathlib import Path
 
 from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Request
@@ -11,8 +12,7 @@ from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
 
 from configs.config import get_settings
-from src.core.security import create_access_token, verify_password
-from src.db.supabase import get_supabase_admin_client, get_supabase_client
+from backend.app.core.security import create_access_token, verify_password
 
 router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
 logger = logging.getLogger(__name__)
@@ -28,11 +28,15 @@ COOKIE_NAME = "znshop_session"
 # Session helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _get_session_email(znshop_session: str | None) -> str | None:
-    if not znshop_session:
+def _get_session_token(znshop_session: str | None = Cookie(default=None)) -> str | None:
+    return znshop_session
+
+
+def _get_session_email(token: str | None) -> str | None:
+    if not token:
         return None
     try:
-        payload = jwt.decode(znshop_session, settings.signing_key, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.signing_key, algorithms=["HS256"])
         return payload.get("sub")
     except JWTError:
         return None
@@ -51,11 +55,38 @@ def _require_session(znshop_session: str | None = Cookie(default=None)) -> str:
         raise HTTPException(status_code=302, headers={"Location": "/admin/login"})
     return email
 
+def _require_token(znshop_session: str | None = Cookie(default=None)) -> str:
+    if not znshop_session or not _get_session_email(znshop_session):
+        raise HTTPException(status_code=302, headers={"Location": "/admin/login"})
+    return znshop_session
 
 def _ctx(request: Request, active: str, email: str, **extra) -> dict:
     """Build base template context."""
     return {"request": request, "active": active, "session_email": email, **extra}
 
+# ──────────────────────────────────────────────────────────────────────────────
+# API Helpers
+# ──────────────────────────────────────────────────────────────────────────────
+async def api_get(request: Request, path: str, token: str) -> dict:
+    url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+        resp.raise_for_status()
+        return resp.json()
+
+async def api_post(request: Request, path: str, token: str, json_data: dict) -> dict:
+    url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, json=json_data, headers={"Authorization": f"Bearer {token}"})
+        resp.raise_for_status()
+        return resp.json()
+
+async def api_delete(request: Request, path: str, token: str) -> dict:
+    url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.delete(url, headers={"Authorization": f"Bearer {token}"})
+        resp.raise_for_status()
+        return resp.json()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Auth
@@ -105,101 +136,130 @@ async def logout():
 # ──────────────────────────────────────────────────────────────────────────────
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
-async def dashboard_home(request: Request, email: str = Depends(_require_session)):
-    db = get_supabase_admin_client()
-    stats = {
-        "stores":    len(db.table("stores").select("id").execute().data),
-        "vendors":   len(db.table("vendors").select("id").execute().data),
-        "customers": len(db.table("customers").select("id").execute().data),
-        "alerts":    len(db.table("demand_signals").select("id").execute().data),
-    }
-    recent_stores = db.table("stores").select("name,owner_name,contact_phone").order("created_at", desc=True).limit(5).execute().data
-    recent_alerts = db.table("demand_signals").select("sku_id,demand_score,created_at").order("created_at", desc=True).limit(5).execute().data
-    return templates.TemplateResponse("home.html", _ctx(request, "home", email,
-        stats=stats, recent_stores=recent_stores, recent_alerts=recent_alerts))
-
+async def dashboard_home(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
+    try:
+        stores_data = await api_get(request, "stores", token)
+        vendors_data = await api_get(request, "vendors", token)
+        alerts_data = await api_get(request, "alerts", token)
+        
+        stores = stores_data.get("stores", [])
+        vendors = vendors_data.get("vendors", [])
+        alerts = alerts_data.get("alerts", [])
+        
+        stats = {
+            "stores": len(stores),
+            "vendors": len(vendors),
+            "alerts": len(alerts),
+            "customers": 0
+        }
+        
+        return templates.TemplateResponse("home.html", _ctx(request, "home", email,
+            stats=stats, recent_stores=stores[:5], recent_alerts=alerts[:5]))
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Dashboard home API error: {e}")
+        return HTMLResponse("Dashboard error", status_code=500)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stores
 # ──────────────────────────────────────────────────────────────────────────────
 
 @router.get("/stores", response_class=HTMLResponse, include_in_schema=False)
-async def stores_page(request: Request, email: str = Depends(_require_session), flash: str | None = None):
-    db = get_supabase_admin_client()
-    stores = db.table("stores").select("*").order("created_at", desc=True).execute().data
-    return templates.TemplateResponse("stores.html", _ctx(request, "stores", email, stores=stores, flash=None))
+async def stores_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token), flash: str | None = None):
+    try:
+        data = await api_get(request, "stores", token)
+        return templates.TemplateResponse("stores.html", _ctx(request, "stores", email, stores=data.get("stores", []), flash=None))
+    except Exception as e:
+        logger.error(f"Error fetching stores: {e}")
+        return templates.TemplateResponse("stores.html", _ctx(request, "stores", email, stores=[], flash={"type": "error", "msg": "Failed to load stores"}))
 
 
 @router.post("/stores/create", include_in_schema=False)
 async def store_create(
+    request: Request,
     email: str = Depends(_require_session),
+    token: str = Depends(_require_token),
     name: str = Form(...),
     owner_name: str = Form(...),
     contact_phone: str = Form(...),
     address: str = Form(""),
 ):
-    db = get_supabase_admin_client()
     try:
-        db.table("stores").insert({
+        await api_post(request, "stores", token, {
             "name": name, "owner_name": owner_name,
             "contact_phone": contact_phone, "address": address,
-        }).execute()
+        })
+    except httpx.HTTPStatusError as e:
+        logger.error("Store create API error: %s", e)
+        if e.response.status_code == 409:
+            logger.warning("Duplicate store phone")
     except Exception as exc:
         logger.error("Store create error: %s", exc)
     return RedirectResponse("/admin/stores", status_code=302)
 
-
 @router.post("/stores/{store_id}/delete", include_in_schema=False)
-async def store_delete(store_id: str, email: str = Depends(_require_session)):
-    db = get_supabase_admin_client()
-    db.table("stores").delete().eq("id", store_id).execute()
+async def store_delete(
+    request: Request,
+    store_id: str,
+    email: str = Depends(_require_session),
+    token: str = Depends(_require_token)
+):
+    try:
+        await api_delete(request, f"stores/{store_id}", token)
+    except httpx.HTTPStatusError as e:
+        logger.error("Store delete API error: %s", e)
     return RedirectResponse("/admin/stores", status_code=302)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Vendors
 # ──────────────────────────────────────────────────────────────────────────────
 
 @router.get("/vendors", response_class=HTMLResponse, include_in_schema=False)
-async def vendors_page(request: Request, email: str = Depends(_require_session)):
-    db = get_supabase_admin_client()
-    vendors = db.table("vendors").select("*").order("name").execute().data
-    stores  = db.table("stores").select("id,name").order("name").execute().data
+async def vendors_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
+    vendors_data = await api_get(request, "vendors", token)
+    stores_data = await api_get(request, "stores", token)
     return templates.TemplateResponse("vendors.html", _ctx(request, "vendors", email,
-        vendors=vendors, stores=stores, flash=None))
+        vendors=vendors_data.get("vendors", []), stores=stores_data.get("stores", []), flash=None))
 
 
 @router.post("/vendors/create", include_in_schema=False)
 async def vendor_create(
+    request: Request,
     email: str = Depends(_require_session),
+    token: str = Depends(_require_token),
     name: str = Form(...),
     phone: str = Form(...),
     category: str = Form("other"),
 ):
-    db = get_supabase_admin_client()
     try:
-        db.table("vendors").insert({"name": name, "phone": phone, "category": category}).execute()
+        await api_post(request, "vendors", token, {"name": name, "phone": phone, "category": category})
     except Exception as exc:
         logger.error("Vendor create error: %s", exc)
     return RedirectResponse("/admin/vendors", status_code=302)
 
 
 @router.post("/vendors/{vendor_id}/delete", include_in_schema=False)
-async def vendor_delete(vendor_id: str, email: str = Depends(_require_session)):
-    db = get_supabase_admin_client()
-    db.table("vendors").delete().eq("id", vendor_id).execute()
+async def vendor_delete(
+    request: Request,
+    vendor_id: str,
+    email: str = Depends(_require_session),
+    token: str = Depends(_require_token)
+):
+    try:
+        await api_delete(request, f"vendors/{vendor_id}", token)
+    except Exception as exc:
+        logger.error("Vendor delete error: %s", exc)
     return RedirectResponse("/admin/vendors", status_code=302)
-
 
 @router.post("/vendors/assign", include_in_schema=False)
 async def vendor_assign(
+    request: Request,
     email: str = Depends(_require_session),
+    token: str = Depends(_require_token),
     store_id: str = Form(...),
     vendor_id: str = Form(...),
 ):
-    db = get_supabase_admin_client()
     try:
-        db.table("store_vendors").upsert({"store_id": store_id, "vendor_id": vendor_id}).execute()
+        await api_post(request, "assign-vendor", token, {"store_id": store_id, "vendor_id": vendor_id})
     except Exception as exc:
         logger.error("Assign vendor error: %s", exc)
     return RedirectResponse("/admin/vendors", status_code=302)
@@ -213,20 +273,19 @@ async def vendor_assign(
 async def inventory_page(
     request: Request,
     email: str = Depends(_require_session),
+    token: str = Depends(_require_token),
     store_id: str | None = None,
 ):
-    db = get_supabase_admin_client()
-    stores = db.table("stores").select("id,name").order("name").execute().data
+    stores_data = await api_get(request, "stores", token)
     inventory = []
     if store_id:
-        inventory = (
-            db.table("inventory")
-            .select("*, skus(name, category_path, store_id)")
-            .eq("skus.store_id", store_id)
-            .execute().data
-        )
+        try:
+            inv_data = await api_get(request, f"inventory/{store_id}", token)
+            inventory = inv_data.get("inventory", [])
+        except Exception as e:
+            logger.error(f"Inventory API error: {e}")
     return templates.TemplateResponse("inventory.html", _ctx(request, "inventory", email,
-        stores=stores, inventory=inventory, selected_store=store_id))
+        stores=stores_data.get("stores", []), inventory=inventory, selected_store=store_id))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -237,18 +296,16 @@ async def inventory_page(
 async def khata_page(
     request: Request,
     email: str = Depends(_require_session),
+    token: str = Depends(_require_token),
     store_id: str | None = None,
 ):
-    db = get_supabase_admin_client()
-    stores = db.table("stores").select("id,name").order("name").execute().data
+    stores_data = await api_get(request, "stores", token)
     records = []
     if store_id:
-        records = (
-            db.table("khata_ledger")
-            .select("*, customers(name, phone, store_id)")
-            .eq("customers.store_id", store_id)
-            .order("updated_at", desc=True)
-            .execute().data
-        )
+        try:
+            khata_data = await api_get(request, f"khata/{store_id}", token)
+            records = khata_data.get("khata", [])
+        except Exception as e:
+            logger.error(f"Khata API error: {e}")
     return templates.TemplateResponse("khata.html", _ctx(request, "khata", email,
-        stores=stores, records=records, selected_store=store_id))
+        stores=stores_data.get("stores", []), records=records, selected_store=store_id))

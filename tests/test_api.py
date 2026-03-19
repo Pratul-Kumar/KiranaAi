@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 @pytest.fixture(scope="module")
 def client():
     with patch("app.db.supabase.create_client", return_value=MagicMock()):
-        from src.main import app
+        from backend.app.main import app
         with TestClient(app) as c:
             yield c
 

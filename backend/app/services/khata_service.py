@@ -2,9 +2,9 @@ import json
 import logging
 from datetime import datetime
 
-from src.db.supabase import get_supabase_admin_client
-from src.models.schemas import KhataParsedRecord, KhataActionEnum
-from src.inference.slm_service import SLMService
+from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.models.schemas import KhataParsedRecord, KhataActionEnum
+from backend.app.inference.slm_service import SLMService
 
 logger = logging.getLogger(__name__)
 

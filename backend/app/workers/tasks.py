@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime, timedelta
 
-from src.workers.celery_app import celery_app
-from src.db.supabase import get_supabase_admin_client
+from backend.app.workers.celery_app import celery_app
+from backend.app.db.supabase import get_supabase_admin_client
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def check_khata_cycles() -> int:
 def check_demand_alerts() -> int:
     """Periodic task: recalculate demand scores for all active SKUs."""
     import asyncio
-    from src.ml.models.demand_engine import DemandSensingEngine
+    from backend.app.models.demand_engine import DemandSensingEngine
 
     db = get_supabase_admin_client()
     engine = DemandSensingEngine()

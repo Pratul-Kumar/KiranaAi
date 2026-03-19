@@ -1,4 +1,4 @@
-from src.db.supabase import get_supabase_admin_client
+from backend.app.db.supabase import get_supabase_admin_client
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any

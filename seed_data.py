@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "backend", ".env"))
 
-from src.db.supabase import get_supabase_admin_client
+from backend.app.db.supabase import get_supabase_admin_client
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)

@@ -8,10 +8,10 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from configs.config import get_settings
-from src.core.logging_config import setup_logging
-from src.api.v1 import whatsapp, compliance
-from src.api.v1 import admin, inventory, alerts, khata
-from src.dashboard.router import router as dashboard_router
+from backend.app.core.logging_config import setup_logging
+from backend.app.api.v1 import whatsapp, compliance
+from backend.app.api.v1 import admin, inventory, alerts, khata
+from backend.app.dashboard.router import router as dashboard_router
 
 setup_logging()
 

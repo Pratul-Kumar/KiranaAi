@@ -2,9 +2,9 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from src.core.security import get_current_admin
-from src.db.supabase import get_supabase_admin_client
-from src.models.schemas import InventoryUpdateRequest
+from backend.app.core.security import get_current_admin
+from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.models.schemas import InventoryUpdateRequest
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
 logger = logging.getLogger(__name__)

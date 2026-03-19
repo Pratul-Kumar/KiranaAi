@@ -28,7 +28,6 @@ PYTHON      = sys.executable
 # ──────────────────────────────────────────────────────────────────────────────
 # Logging
 # ──────────────────────────────────────────────────────────────────────────────
-LOG_DIR.mkdir(exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -201,7 +200,7 @@ def start_fastapi() -> subprocess.Popen:
     env_patch = {"PYTHONPATH": str(ROOT)}
     p = _launch(
         "fastapi",
-        [PYTHON, "-m", "uvicorn", "src.main:app",
+        [PYTHON, "-m", "uvicorn", "backend.app.main:app",
          "--host", "0.0.0.0", "--port", "8000", "--reload"],
         cwd=ROOT,
         env=env_patch,
@@ -220,7 +219,7 @@ def start_celery() -> subprocess.Popen:
     env_patch = {"PYTHONPATH": str(ROOT)}
     p = _launch(
         "celery",
-        [PYTHON, "-m", "celery", "-A", "src.workers.celery_app",
+        [PYTHON, "-m", "celery", "-A", "backend.app.workers.celery_app",
          "worker", "--loglevel=info", "--concurrency=2"],
         cwd=ROOT,
         env=env_patch,

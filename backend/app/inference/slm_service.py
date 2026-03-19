@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from configs.config import get_settings
-from src.models.schemas import AIIntentResponse, IntentEnum
+from backend.app.models.schemas import AIIntentResponse, IntentEnum
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

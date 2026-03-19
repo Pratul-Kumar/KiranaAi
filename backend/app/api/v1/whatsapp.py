@@ -3,12 +3,12 @@ import logging
 from fastapi import APIRouter, Query, Request, Response
 
 from configs.config import get_settings
-from src.db.supabase import get_supabase_client
-from src.models.schemas import AIIntentResponse, IntentEnum
-from src.inference.ai_service import AIServiceLayer
-from src.services.inventory_service import InventoryOrchestrator
-from src.services.khata_service import KhataService
-from src.services.whatsapp_service import WhatsAppService
+from backend.app.db.supabase import get_supabase_client
+from backend.app.models.schemas import AIIntentResponse, IntentEnum
+from backend.app.inference.ai_service import AIServiceLayer
+from backend.app.services.inventory_service import InventoryOrchestrator
+from backend.app.services.khata_service import KhataService
+from backend.app.services.whatsapp_service import WhatsAppService
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 logger = logging.getLogger(__name__)

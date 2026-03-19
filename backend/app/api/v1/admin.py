@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from configs.config import get_settings
-from src.core.security import create_access_token, get_current_admin, verify_password
-from src.db.supabase import get_supabase_admin_client
-from src.models.schemas import (
+from backend.app.core.security import create_access_token, get_current_admin, verify_password
+from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.models.schemas import (
     AdminLoginRequest,
     AssignVendorRequest,
     BroadcastRequest,
@@ -16,7 +16,8 @@ from src.models.schemas import (
     TokenResponse,
     VendorCreate,
 )
-from src.services.notification_service import NotificationService
+from backend.app.services.notification_service import NotificationService
+from postgrest.exceptions import APIError
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
@@ -108,8 +109,14 @@ async def admin_login(body: AdminLoginRequest) -> TokenResponse:
 @router.post("/stores", dependencies=[Depends(get_current_admin)])
 async def create_store(body: StoreCreate) -> dict:
     db = get_supabase_admin_client()
-    res = db.table("stores").insert(body.model_dump(exclude_none=True)).execute()
-    return {"status": "created", "store": res.data[0] if res.data else {}}
+    try:
+        res = db.table("stores").insert(body.model_dump(exclude_none=True)).execute()
+        return {"status": "created", "store": res.data[0] if res.data else {}}
+    except APIError as e:
+        err_dict = e.json()
+        if err_dict.get("code") == "23505":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Store with this phone number already exists.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(err_dict))
 
 
 @router.get("/stores", dependencies=[Depends(get_current_admin)])
@@ -122,8 +129,21 @@ async def list_stores() -> dict:
 @router.post("/vendors", dependencies=[Depends(get_current_admin)])
 async def create_vendor(body: VendorCreate) -> dict:
     db = get_supabase_admin_client()
-    res = db.table("vendors").insert(body.model_dump()).execute()
-    return {"status": "created", "vendor": res.data[0] if res.data else {}}
+    try:
+        res = db.table("vendors").insert(body.model_dump()).execute()
+        return {"status": "created", "vendor": res.data[0] if res.data else {}}
+    except APIError as e:
+        err_dict = e.json()
+        if err_dict.get("code") == "23505":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Vendor with this phone number already exists.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(err_dict))
+
+
+@router.delete("/stores/{store_id}", dependencies=[Depends(get_current_admin)])
+async def delete_store(store_id: str) -> dict:
+    db = get_supabase_admin_client()
+    db.table("stores").delete().eq("id", store_id).execute()
+    return {"status": "deleted", "store_id": store_id}
 
 
 @router.get("/vendors", dependencies=[Depends(get_current_admin)])
@@ -131,6 +151,13 @@ async def list_vendors() -> dict:
     db = get_supabase_admin_client()
     res = db.table("vendors").select("*").order("name").execute()
     return {"vendors": res.data}
+
+
+@router.delete("/vendors/{vendor_id}", dependencies=[Depends(get_current_admin)])
+async def delete_vendor(vendor_id: str) -> dict:
+    db = get_supabase_admin_client()
+    db.table("vendors").delete().eq("id", vendor_id).execute()
+    return {"status": "deleted", "vendor_id": vendor_id}
 
 
 @router.post("/assign-vendor", dependencies=[Depends(get_current_admin)])
@@ -154,6 +181,16 @@ async def get_store_inventory(store_id: str) -> dict:
     )
     return {"store_id": store_id, "inventory": res.data}
 
+@router.get("/inventory", dependencies=[Depends(get_current_admin)])
+async def get_all_inventory() -> dict:
+    db = get_supabase_admin_client()
+    res = (
+        db.table("inventory")
+        .select("*, skus(name, category_path, store_id)")
+        .execute()
+    )
+    return {"inventory": res.data}
+
 
 @router.get("/khata/{store_id}", dependencies=[Depends(get_current_admin)])
 async def get_khata(store_id: str) -> dict:
@@ -165,6 +202,16 @@ async def get_khata(store_id: str) -> dict:
         .execute()
     )
     return {"store_id": store_id, "khata": res.data}
+
+@router.get("/khata", dependencies=[Depends(get_current_admin)])
+async def get_all_khata() -> dict:
+    db = get_supabase_admin_client()
+    res = (
+        db.table("khata_ledger")
+        .select("*, customers(name, phone, store_id)")
+        .execute()
+    )
+    return {"khata": res.data}
 
 
 @router.get("/alerts", dependencies=[Depends(get_current_admin)])

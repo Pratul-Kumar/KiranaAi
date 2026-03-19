@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Query
 
-from src.db.supabase import get_supabase_client
+from backend.app.db.supabase import get_supabase_client
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 logger = logging.getLogger(__name__)

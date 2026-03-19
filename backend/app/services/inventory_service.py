@@ -1,9 +1,9 @@
 import logging
 from typing import Optional
 
-from src.db.supabase import get_supabase_admin_client
-from src.models.schemas import AIIntentResponse
-from src.ml.models.demand_engine import DemandSensingEngine
+from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.models.schemas import AIIntentResponse
+from backend.app.models.demand_engine import DemandSensingEngine
 
 logger = logging.getLogger(__name__)
 
