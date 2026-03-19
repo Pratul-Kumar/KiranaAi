@@ -24,6 +24,7 @@ ENV PORT=8000
 
 COPY backend ./backend
 COPY dashboard ./dashboard
+COPY configs ./configs
 
 RUN adduser --disabled-password --gecos "" appuser \
     && chown -R appuser /app

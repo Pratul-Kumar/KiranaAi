@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY backend ./backend
 COPY dashboard ./dashboard
+COPY configs ./configs
 
 EXPOSE 8000
 

@@ -34,7 +34,7 @@ pip install -r backend/requirements.txt
 
 # 2. Start the FastAPI server
 cd backend
-uvicorn app.main:app --reload --port 8000
+uvicorn backend.app.main:app --reload --port 8000
 
 # 3. Start the Celery worker (in a new terminal)
 celery -A app.worker.celery_worker worker --loglevel=info
