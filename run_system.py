@@ -41,9 +41,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("znshop.runner")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Colours (skipped on Windows if not supported)
-# ──────────────────────────────────────────────────────────────────────────────
 if platform.system() == "Windows":
     os.system("color")  # enable ANSI on Windows 10+
 
@@ -201,12 +198,12 @@ def start_fastapi() -> subprocess.Popen:
         return None
 
     info("Starting FastAPI on :8000…")
-    env_patch = {"PYTHONPATH": str(BACKEND_DIR)}
+    env_patch = {"PYTHONPATH": str(ROOT)}
     p = _launch(
         "fastapi",
-        [PYTHON, "-m", "uvicorn", "app.main:app",
+        [PYTHON, "-m", "uvicorn", "src.main:app",
          "--host", "0.0.0.0", "--port", "8000", "--reload"],
-        cwd=BACKEND_DIR,
+        cwd=ROOT,
         env=env_patch,
     )
     if not _wait_for_port(8000, timeout=20):
@@ -220,12 +217,12 @@ def start_fastapi() -> subprocess.Popen:
 # ──────────────────────────────────────────────────────────────────────────────
 def start_celery() -> subprocess.Popen:
     info("Starting Celery worker…")
-    env_patch = {"PYTHONPATH": str(BACKEND_DIR)}
+    env_patch = {"PYTHONPATH": str(ROOT)}
     p = _launch(
         "celery",
-        [PYTHON, "-m", "celery", "-A", "app.workers.celery_app",
+        [PYTHON, "-m", "celery", "-A", "src.workers.celery_app",
          "worker", "--loglevel=info", "--concurrency=2"],
-        cwd=BACKEND_DIR,
+        cwd=ROOT,
         env=env_patch,
     )
     time.sleep(2)
