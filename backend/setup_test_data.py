@@ -1,4 +1,4 @@
-from app.db.supabase import get_supabase_admin_client
+from src.db.supabase import get_supabase_admin_client
 import uuid
 import logging
 

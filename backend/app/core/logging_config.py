@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from app.core.config import get_settings
+from configs.config import get_settings
 
 settings = get_settings()
 

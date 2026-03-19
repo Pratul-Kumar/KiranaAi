@@ -10,9 +10,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
 
-from app.core.config import get_settings
-from app.core.security import create_access_token, verify_password
-from app.db.supabase import get_supabase_admin_client, get_supabase_client
+from configs.config import get_settings
+from src.core.security import create_access_token, verify_password
+from src.db.supabase import get_supabase_admin_client, get_supabase_client
 
 router = APIRouter(prefix="/admin", tags=["Admin Dashboard"])
 logger = logging.getLogger(__name__)

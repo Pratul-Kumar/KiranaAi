@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from app.core.config import get_settings
+from configs.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

@@ -5,7 +5,7 @@ Injects dummy env vars so Pydantic Settings validation passes without a real .en
 import os
 import sys
 
-# Insert backend/ onto sys.path so `import app.*` resolves
+# Insert backend/ onto sys.path so `import src.*` resolves
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 # Inject minimum required env vars before any app module is imported
