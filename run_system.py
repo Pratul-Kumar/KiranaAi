@@ -13,9 +13,33 @@ from pathlib import Path
 from typing import Optional
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Virtual Environment Support
+# ──────────────────────────────────────────────────────────────────────────────
+ROOT = Path(__file__).parent.resolve()
+VENV_DIR = ROOT / ".venv"
+
+def activate_venv() -> None:
+    """Ensure venv site-packages are in sys.path if running via base python."""
+    if VENV_DIR.exists():
+        # Add site-packages to current process
+        site_packages = VENV_DIR / "Lib" / "site-packages"
+        if site_packages.exists() and str(site_packages) not in sys.path:
+            sys.path.insert(0, str(site_packages))
+        
+        # Ensure sub-processes also see the venv
+        os.environ["VIRTUAL_ENV"] = str(VENV_DIR)
+        os.environ["PYTHONPATH"] = str(site_packages) + os.pathsep + os.environ.get("PYTHONPATH", "")
+        
+        # Also add Scripts to PATH so 'pip' and other tools work
+        scripts_dir = VENV_DIR / "Scripts"
+        if scripts_dir.exists():
+            os.environ["PATH"] = str(scripts_dir) + os.pathsep + os.environ.get("PATH", "")
+
+activate_venv()
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Paths
 # ──────────────────────────────────────────────────────────────────────────────
-ROOT        = Path(__file__).parent.resolve()
 BACKEND_DIR = ROOT / "backend"
 DASHBOARD   = ROOT / "dashboard" / "admin_dashboard.py"
 SEED_SCRIPT = ROOT / "scripts" / "seed_data.py"
@@ -41,7 +65,10 @@ logging.basicConfig(
 log = logging.getLogger("znshop.runner")
 
 if platform.system() == "Windows":
-    os.system("color")  # enable ANSI on Windows 10+
+    try:
+        os.system("color")  # enable ANSI on Windows 10+
+    except Exception:
+        pass # Ignore if color command is not found
 
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
@@ -85,16 +112,35 @@ def check_python() -> None:
 # 2. Dependency install
 # ──────────────────────────────────────────────────────────────────────────────
 def install_dependencies() -> None:
+    print("DEBUG: install_dependencies start")
     if not REQ_FILE.exists():
         warn(f"requirements.txt not found at {REQ_FILE}")
         return
     info("Checking/installing dependencies…")
-    result = subprocess.run(
-        [PYTHON, "-m", "pip", "install", "-q", "-r", str(REQ_FILE)],
-        capture_output=True, text=True,
-    )
+    
+    # Try using 'uv' if available, it's faster and avoids PEP 668 issues
+    use_uv = False
+    try:
+        use_uv = subprocess.run(["uv", "--version"], capture_output=True).returncode == 0
+    except FileNotFoundError:
+        pass
+    
+    if use_uv:
+        cmd = ["uv", "pip", "install", "-q", "-r", str(REQ_FILE)]
+    else:
+        cmd = [PYTHON, "-m", "pip", "install", "-q", "-r", str(REQ_FILE)]
+        if os.environ.get("VIRTUAL_ENV"):
+             cmd.append("--break-system-packages") 
+
+    info(f"Running: {' '.join(map(str, cmd))}")
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except Exception as e:
+        err(f"Dependency installation failed to launch: {e}")
+        raise
+
     if result.returncode != 0:
-        err(f"pip install failed:\n{result.stderr}")
+        err(f"Dependency installation failed:\n{result.stderr}")
         sys.exit(1)
     ok("Dependencies satisfied")
 
@@ -149,14 +195,19 @@ def _wait_for_port(port: int, timeout: float = 20.0) -> bool:
 def _launch(name: str, cmd: list[str], cwd: Optional[Path] = None,
             env: Optional[dict] = None) -> subprocess.Popen:
     merged_env = {**os.environ, **(env or {})}
-    p = subprocess.Popen(
-        cmd,
-        cwd=str(cwd or ROOT),
-        env=merged_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
+    log.debug(f"Launching {name}: {' '.join(map(str, cmd))}")
+    try:
+        p = subprocess.Popen(
+            cmd,
+            cwd=str(cwd or ROOT),
+            env=merged_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except Exception as e:
+        err(f"Failed to launch {name}: {e}\nCommand: {' '.join(map(str, cmd))}")
+        raise
     _processes.append(p)
     log.debug(f"Started {name} (PID {p.pid}): {' '.join(cmd)}")
     return p
@@ -170,11 +221,15 @@ def ensure_redis() -> None:
         return
 
     info("Starting Redis via Docker…")
-    result = subprocess.run(
-        ["docker", "run", "-d", "--rm", "--name", "znshop_redis_standalone",
-         "-p", "6379:6379", "redis:7-alpine"],
-        capture_output=True, text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "run", "-d", "--rm", "--name", "znshop_redis_standalone",
+             "-p", "6379:6379", "redis:7-alpine"],
+            capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        warn("Docker 'docker' command not found. Skipping Docker-based Redis.")
+        result = subprocess.CompletedProcess(args=[], returncode=1)
     if result.returncode != 0:
         warn("Could not start Redis via Docker. Trying redis-server…")
         p = _launch("redis-server", ["redis-server"])

@@ -11,6 +11,7 @@ from configs.config import get_settings
 from backend.app.core.logging_config import setup_logging
 from backend.app.api.v1 import whatsapp, compliance
 from backend.app.api.v1 import admin, inventory, alerts, khata
+from backend.app.db.supabase import get_supabase_client_safe
 from backend.app.dashboard.router import router as dashboard_router
 
 setup_logging()
@@ -82,6 +83,10 @@ async def _log_routes() -> None:
     for r in sorted(routes, key=lambda x: x.path):
         methods = ",".join(sorted(r.methods or []))
         logger.info("  %-8s %s", methods, r.path)
+    if get_supabase_client_safe() is None:
+        logger.warning("Supabase is unavailable at startup; app will continue and retry on demand")
+    else:
+        logger.info("Supabase client initialized successfully")
 
 
 @app.get("/health", tags=["Health"])

@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 
 from fastapi import APIRouter, Query, Request, Response
 
@@ -7,17 +8,26 @@ from backend.app.db.supabase import get_supabase_client
 from backend.app.models.schemas import AIIntentResponse, IntentEnum
 from backend.app.inference.ai_service import AIServiceLayer
 from backend.app.services.inventory_service import InventoryOrchestrator
-from backend.app.services.khata_service import KhataService
 from backend.app.services.whatsapp_service import WhatsAppService
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-_ai_service = AIServiceLayer()
-_inventory_service = InventoryOrchestrator()
-_khata_service = KhataService()
-_whatsapp_service = WhatsAppService()
+
+@lru_cache(maxsize=1)
+def _get_ai_service() -> AIServiceLayer:
+    return AIServiceLayer()
+
+
+@lru_cache(maxsize=1)
+def _get_inventory_service() -> InventoryOrchestrator:
+    return InventoryOrchestrator()
+
+
+@lru_cache(maxsize=1)
+def _get_whatsapp_service() -> WhatsAppService:
+    return WhatsAppService()
 
 
 @router.get("/webhook")
@@ -35,6 +45,9 @@ async def verify_webhook(
 async def whatsapp_webhook(request: Request) -> dict:
     body = await request.json()
     logger.debug(f"Webhook received: {body}")
+    ai_service = _get_ai_service()
+    inventory_service = _get_inventory_service()
+    whatsapp_service = _get_whatsapp_service()
 
     try:
         entry = body.get("entry", [{}])[0]
@@ -89,7 +102,7 @@ async def whatsapp_webhook(request: Request) -> dict:
 
         # --- AI intent (text only; buttons skip the SLM) ---
         if msg_type == "text":
-            ai_result = await _ai_service.process_text_message(msg_body)
+            ai_result = await ai_service.process_text_message(msg_body)
         else:
             ai_result = AIIntentResponse(
                 intent=IntentEnum.UNKNOWN,
@@ -154,12 +167,12 @@ async def whatsapp_webhook(request: Request) -> dict:
                             {"id": f"update_{order_id}", "title": "Update Price"},
                             {"id": f"decline_{order_id}", "title": "Decline"},
                         ]
-                        await _whatsapp_service.send_button_message(supplier["phone"], reorder_msg, buttons)
+                        await whatsapp_service.send_button_message(supplier["phone"], reorder_msg, buttons)
                         logger.info(f"Reorder {order_id} sent to supplier {supplier['name']}")
                         response = {"status": "distributor_notified", "supplier": supplier["name"]}
 
             elif ai_result.intent == IntentEnum.STOCK_UPDATE:
-                response = await _inventory_service.update_stock(ai_result, store_id)
+                response = await inventory_service.update_stock(ai_result, store_id)
 
         elif role == "supplier":
             if msg_type == "text":
@@ -188,10 +201,10 @@ async def whatsapp_webhook(request: Request) -> dict:
                             {"id": f"approve_{order['id']}", "title": "Approve"},
                             {"id": f"decline_{order['id']}", "title": "Decline"},
                         ]
-                        await _whatsapp_service.send_button_message(from_phone, confirm_msg, buttons)
+                        await whatsapp_service.send_button_message(from_phone, confirm_msg, buttons)
                         return {"status": "price_updated"}
                     except ValueError:
-                        await _whatsapp_service.send_text_message(from_phone, "❌ Invalid price. Please send a number (e.g., 50).")
+                        await whatsapp_service.send_text_message(from_phone, "❌ Invalid price. Please send a number (e.g., 50).")
                         return {"status": "invalid_input"}
 
             if msg_type == "interactive" and button_id:
@@ -209,37 +222,37 @@ async def whatsapp_webhook(request: Request) -> dict:
 
                 if action == "approve":
                     if order["status"] not in ("pending", "pending_price"):
-                        await _whatsapp_service.send_text_message(from_phone, f"⚠️ Order already {order['status']}.")
+                        await whatsapp_service.send_text_message(from_phone, f"⚠️ Order already {order['status']}.")
                         return {"status": "already_processed"}
 
                     db.table("reorder_requests").update({"status": "approved"}).eq("id", order_id).execute()
                     price_info = f" at ₹{order['unit_price']}" if order.get("unit_price") else ""
-                    await _whatsapp_service.send_text_message(
+                    await whatsapp_service.send_text_message(
                         store_data["contact_phone"],
                         f"🔔 *APPROVED*: Distributor accepted order for {order['sku_name']}{price_info}.",
                     )
                     bill_msg = f"✅ Order {str(order_id)[:8]} Approved.\n\nYou can now generate the bill."
-                    await _whatsapp_service.send_button_message(
+                    await whatsapp_service.send_button_message(
                         from_phone, bill_msg, [{"id": f"genbill_{order_id}", "title": "Generate Bill"}]
                     )
                     response = {"status": "approved"}
 
                 elif action == "update":
                     db.table("reorder_requests").update({"status": "pending_price"}).eq("id", order_id).execute()
-                    await _whatsapp_service.send_text_message(from_phone, f"Please send the new unit price for {order['sku_name']}:")
+                    await whatsapp_service.send_text_message(from_phone, f"Please send the new unit price for {order['sku_name']}:")
                     return {"status": "awaiting_price"}
 
                 elif action == "decline":
                     if order["status"] not in ("pending", "pending_price"):
-                        await _whatsapp_service.send_text_message(from_phone, f"⚠️ Order already {order['status']}.")
+                        await whatsapp_service.send_text_message(from_phone, f"⚠️ Order already {order['status']}.")
                         return {"status": "already_processed"}
 
                     db.table("reorder_requests").update({"status": "declined"}).eq("id", order_id).execute()
-                    await _whatsapp_service.send_text_message(
+                    await whatsapp_service.send_text_message(
                         store_data["contact_phone"],
                         f"❌ *DECLINED*: Distributor rejected order for {order['sku_name']}.",
                     )
-                    await _whatsapp_service.send_text_message(from_phone, "Order declined.")
+                    await whatsapp_service.send_text_message(from_phone, "Order declined.")
                     response = {"status": "declined"}
 
                 elif action == "genbill":
@@ -260,8 +273,8 @@ async def whatsapp_webhook(request: Request) -> dict:
                         f"--------------------------\n"
                         f"Thank you for your business!"
                     )
-                    await _whatsapp_service.send_text_message(from_phone, bill_text)
-                    await _whatsapp_service.send_text_message(
+                    await whatsapp_service.send_text_message(from_phone, bill_text)
+                    await whatsapp_service.send_text_message(
                         store_data["contact_phone"],
                         f"📄 *INVOICE RECEIVED* from {supplier_data.get('name', 'Supplier')}\n\n{bill_text}",
                     )
@@ -272,7 +285,7 @@ async def whatsapp_webhook(request: Request) -> dict:
             reply = "Received."
             if response.get("status") == "distributor_notified":
                 reply = f"✅ Order sent to {response['supplier']} for approval."
-            await _whatsapp_service.send_text_message(from_phone, reply)
+            await whatsapp_service.send_text_message(from_phone, reply)
 
         return {"status": "success"}
 
