@@ -12,34 +12,30 @@ import signal
 from pathlib import Path
 from typing import Optional
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Virtual Environment Support
-# ──────────────────────────────────────────────────────────────────────────────
+# venv setup
 ROOT = Path(__file__).parent.resolve()
 VENV_DIR = ROOT / ".venv"
 
 def activate_venv() -> None:
     """Ensure venv site-packages are in sys.path if running via base python."""
     if VENV_DIR.exists():
-        # Add site-packages to current process
+        # add site-packages to this process
         site_packages = VENV_DIR / "Lib" / "site-packages"
         if site_packages.exists() and str(site_packages) not in sys.path:
             sys.path.insert(0, str(site_packages))
         
-        # Ensure sub-processes also see the venv
+        # make sure child processes use this venv
         os.environ["VIRTUAL_ENV"] = str(VENV_DIR)
         os.environ["PYTHONPATH"] = str(site_packages) + os.pathsep + os.environ.get("PYTHONPATH", "")
         
-        # Also add Scripts to PATH so 'pip' and other tools work
+        # keep Scripts on PATH for pip and tools
         scripts_dir = VENV_DIR / "Scripts"
         if scripts_dir.exists():
             os.environ["PATH"] = str(scripts_dir) + os.pathsep + os.environ.get("PATH", "")
 
 activate_venv()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Paths
-# ──────────────────────────────────────────────────────────────────────────────
+# paths
 BACKEND_DIR = ROOT / "backend"
 DASHBOARD   = ROOT / "dashboard" / "admin_dashboard.py"
 SEED_SCRIPT = ROOT / "scripts" / "seed_data.py"
@@ -49,9 +45,7 @@ ENV_FILE    = BACKEND_DIR / ".env"
 REQ_FILE    = BACKEND_DIR / "requirements.txt"
 PYTHON      = sys.executable
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Logging
-# ──────────────────────────────────────────────────────────────────────────────
+# logging
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,9 +60,9 @@ log = logging.getLogger("znshop.runner")
 
 if platform.system() == "Windows":
     try:
-        os.system("color")  # enable ANSI on Windows 10+
+        os.system("color")  # enable ANSI colors on Windows
     except Exception:
-        pass # Ignore if color command is not found
+        pass  # skip if color command is unavailable
 
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
@@ -82,9 +76,7 @@ def warn(msg: str) -> None: log.warning(f"{YELLOW}⚠{RESET}  {msg}")
 def err(msg: str)  -> None: log.error(f"{RED}✖{RESET}  {msg}")
 def info(msg: str) -> None: log.info(f"{CYAN}→{RESET}  {msg}")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Tracked sub-processes (cleaned up on exit)
-# ──────────────────────────────────────────────────────────────────────────────
+# track child processes for clean shutdown
 _processes: list[subprocess.Popen] = []
 
 def _stop_all(*_) -> None:
@@ -99,18 +91,14 @@ def _stop_all(*_) -> None:
 signal.signal(signal.SIGINT,  _stop_all)
 signal.signal(signal.SIGTERM, _stop_all)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 1. Python version check
-# ──────────────────────────────────────────────────────────────────────────────
+# python version check
 def check_python() -> None:
     if sys.version_info < (3, 10):
         err(f"Python 3.10+ required. You have {sys.version}")
         sys.exit(1)
     ok(f"Python {sys.version.split()[0]}")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 2. Dependency install
-# ──────────────────────────────────────────────────────────────────────────────
+# dependency install
 def install_dependencies() -> None:
     print("DEBUG: install_dependencies start")
     if not REQ_FILE.exists():
@@ -118,7 +106,7 @@ def install_dependencies() -> None:
         return
     info("Checking/installing dependencies…")
     
-    # Try using 'uv' if available, it's faster and avoids PEP 668 issues
+    # prefer uv when available
     use_uv = False
     try:
         use_uv = subprocess.run(["uv", "--version"], capture_output=True).returncode == 0
@@ -144,9 +132,7 @@ def install_dependencies() -> None:
         sys.exit(1)
     ok("Dependencies satisfied")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 3. .env validation
-# ──────────────────────────────────────────────────────────────────────────────
+# env validation
 REQUIRED_VARS = [
     "SUPABASE_URL",
     "SUPABASE_KEY",
@@ -162,7 +148,7 @@ def check_env() -> None:
         err("Copy backend/.env.example → backend/.env and fill in your values.")
         sys.exit(1)
 
-    # Parse .env manually (avoid loading the whole app just to check)
+    # parse .env directly without importing the app
     defined: set[str] = set()
     for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -176,9 +162,7 @@ def check_env() -> None:
 
     ok(".env validated")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 4. Port / process helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# port and process helpers
 def _port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(1)
@@ -212,9 +196,7 @@ def _launch(name: str, cmd: list[str], cwd: Optional[Path] = None,
     log.debug(f"Started {name} (PID {p.pid}): {' '.join(cmd)}")
     return p
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 5. Redis
-# ──────────────────────────────────────────────────────────────────────────────
+# redis
 def ensure_redis() -> None:
     if _port_in_use(6379):
         ok("Redis already running on :6379")
@@ -243,9 +225,7 @@ def ensure_redis() -> None:
 
     ok("Redis running on :6379")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 6. FastAPI
-# ──────────────────────────────────────────────────────────────────────────────
+# fastapi
 def start_fastapi() -> subprocess.Popen:
     if _port_in_use(8000):
         ok("FastAPI already running on :8000 — skipping launch")
@@ -266,9 +246,7 @@ def start_fastapi() -> subprocess.Popen:
     ok("FastAPI running → http://localhost:8000")
     return p
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 7. Celery worker
-# ──────────────────────────────────────────────────────────────────────────────
+# celery worker
 def start_celery() -> subprocess.Popen:
     info("Starting Celery worker…")
     env_patch = {"PYTHONPATH": str(ROOT)}
@@ -283,9 +261,7 @@ def start_celery() -> subprocess.Popen:
     ok("Celery worker started")
     return p
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 8. Ollama check
-# ──────────────────────────────────────────────────────────────────────────────
+# ollama check
 def check_ollama() -> None:
     if _port_in_use(11434):
         ok("Ollama running on :11434")
@@ -293,9 +269,7 @@ def check_ollama() -> None:
         warn("Ollama is NOT running on :11434.")
         warn("AI intent parsing will fail. Run `ollama serve` && `ollama pull mistral`.")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 9. Seed demo data
-# ──────────────────────────────────────────────────────────────────────────────
+# seed demo data
 def seed_demo_data() -> tuple[int, int]:
     if not SEED_SCRIPT.exists():
         warn(f"Seed script not found: {SEED_SCRIPT}")
@@ -316,9 +290,7 @@ def seed_demo_data() -> tuple[int, int]:
     vendors = result.stdout.count("[ok]   vendors") + result.stdout.count("[skip] vendors")
     return stores or 4, vendors or 6
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 10. Admin Dashboard (Streamlit)
-# ──────────────────────────────────────────────────────────────────────────────
+# admin dashboard
 def start_dashboard() -> Optional[subprocess.Popen]:
     if not DASHBOARD.exists():
         warn(f"Dashboard not found: {DASHBOARD}")
@@ -342,9 +314,7 @@ def start_dashboard() -> Optional[subprocess.Popen]:
         warn("Dashboard may not be ready yet — check if streamlit is installed")
     return p
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 11. Summary banner
-# ──────────────────────────────────────────────────────────────────────────────
+# summary banner
 def _read_env_var(key: str) -> str:
     for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -386,14 +356,12 @@ def print_banner(stores: int, vendors: int) -> None:
     """)
     print(banner)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 12. Log tail (keep process alive)
-# ──────────────────────────────────────────────────────────────────────────────
+# log tail loop
 def tail_logs() -> None:
     """Stream FastAPI stdout to the console until Ctrl+C."""
     api_proc = next((p for p in _processes if p is not None), None)
     if not api_proc:
-        # Nothing to stream — just wait
+        # no stream yet, keep process alive
         while True:
             time.sleep(1)
         return
@@ -402,9 +370,7 @@ def tail_logs() -> None:
         sys.stdout.write(line)
         sys.stdout.flush()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────────────────────────────────────
+# main
 def main() -> None:
     print(f"\n{BOLD}ZnShop — Starting up…{RESET}\n")
 

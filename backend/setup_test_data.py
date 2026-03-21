@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 def setup_test_data():
     db = get_supabase_admin_client()
     
-    # 1. Add Stores
+    # add stores
     test_numbers = ["919534177010", "919981909017", "919109298199"]
     store_ids = []
     
     logger.info("Setting up Stores...")
     for i, num in enumerate(test_numbers):
         try:
-            # Check if exists
+            # skip if already present
             existing = db.table("stores").select("id").eq("contact_phone", num).execute()
             if not existing.data:
                 res = db.table("stores").insert({
@@ -32,7 +32,7 @@ def setup_test_data():
         except Exception as e:
             logger.error(f"Error creating store for {num}: {e}")
 
-    # 2. Add Sample SKUs for each store
+    # add sample SKUs per store
     logger.info("\nSetting up SKUs...")
     for store_id in store_ids:
         skus = [
@@ -42,12 +42,12 @@ def setup_test_data():
         ]
         for sku in skus:
             try:
-                # Check if exists
+                # skip if already present
                 existing = db.table("skus").select("id").eq("name", sku["name"]).eq("store_id", store_id).execute()
                 if not existing.data:
                     res = db.table("skus").insert(sku).execute()
                     sku_id = res.data[0]["id"]
-                    # Also add initial inventory
+                    # seed initial stock
                     db.table("inventory").insert({"sku_id": sku_id, "stock_level": 10}).execute()
                     logger.info(f"Created SKU {sku['name']} for store {store_id}")
                 else:
@@ -55,7 +55,7 @@ def setup_test_data():
             except Exception as e:
                 logger.error(f"Error creating SKU {sku['name']}: {e}")
 
-    # 3. Add Sample Customers for Khata
+    # add sample customers
     logger.info("\nSetting up Customers...")
     for store_id in store_ids:
         customers = [

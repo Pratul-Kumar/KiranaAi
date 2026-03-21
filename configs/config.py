@@ -8,34 +8,34 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    # Server
+    # server
     PORT: int = 8000
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
-    # Supabase
+    # supabase
     SUPABASE_URL: str
     SUPABASE_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
-    # AI / SLM
+    # AI
     OLLAMA_URL: str = "http://localhost:11434"
     AI_MODEL_ENDPOINT: str | None = None
     AI_MODEL_NAME: str = "mistral"
     BHASHINI_API_KEY: str = ""
 
-    # Redis / Celery
+    # workers
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # WhatsApp (Meta Graph API)
+    # whatsapp
     WHATSAPP_VERIFY_TOKEN: str = "znshop_verify"
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_PHONE_NUMBER_ID: str = ""
 
-    # Admin / Security
+    # admin
     JWT_SECRET: str = "change-me-in-production"
     SECRET_KEY: str = ""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # minutes
     ADMIN_EMAIL: str = "admin@znshop.local"
     ADMIN_PASSWORD: str = "changeme"
     ADMIN_PASSWORD_HASH: str = ""
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: ["*"])
 
-    # Admin Dashboard
+    # dashboard
     ZNSHOP_API_URL: str = "http://localhost:8000/api/v1"
 
     model_config = SettingsConfigDict(

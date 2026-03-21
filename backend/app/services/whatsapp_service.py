@@ -80,7 +80,7 @@ class WhatsAppService:
             "Content-Type": "application/json"
         }
 
-        # Format buttons for Meta API
+        # convert buttons to Meta format
         formatted_buttons = []
         for btn in buttons:
             formatted_buttons.append({

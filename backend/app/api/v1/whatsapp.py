@@ -72,7 +72,7 @@ async def whatsapp_webhook(request: Request) -> dict:
 
         logger.info(f"Incoming message: from={from_phone} type={msg_type} body={msg_body!r}")
 
-        # --- Role detection ---
+        # resolve sender role
         db = get_supabase_client()
         role = "unknown"
         store_id = None
@@ -100,7 +100,7 @@ async def whatsapp_webhook(request: Request) -> dict:
             logger.warning(f"Unauthorized sender: {from_phone}")
             return {"status": "unauthorized"}
 
-        # --- AI intent (text only; buttons skip the SLM) ---
+        # parse intent only for text messages
         if msg_type == "text":
             ai_result = await ai_service.process_text_message(msg_body)
         else:
@@ -112,7 +112,7 @@ async def whatsapp_webhook(request: Request) -> dict:
 
         logger.info(f"AI intent={ai_result.intent} sku={ai_result.sku} conf={ai_result.confidence:.2f}")
 
-        # --- Routing ---
+        # route by role and action
         response: dict = {}
 
         if role == "owner":
@@ -280,7 +280,7 @@ async def whatsapp_webhook(request: Request) -> dict:
                     )
                     response = {"status": "bill_generated"}
 
-        # --- Acknowledge text messages to owner ---
+        # send quick ack to owner
         if msg_type == "text" and role == "owner":
             reply = "Received."
             if response.get("status") == "distributor_notified":

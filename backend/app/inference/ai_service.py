@@ -27,17 +27,17 @@ class AIServiceLayer:
         """High-level pipeline: Audio URL -> Text -> Intent JSON."""
         logger.info(f"Processing voice message from: {audio_url}")
         
-        # 1. Transcribe
+        # transcribe
         transcription_result = await self.speech.transcribe_audio(audio_url)
         if not transcription_result or not transcription_result.text:
             return await self._process_unknown("", "Transcription failed")
             
-        # 2. Extract Intent/Entities
+        # extract intent
         result = await self.slm.extract_intent_and_entities(transcription_result.text)
         
-        # 3. Validation & Observability
+        # write trace logs
         await self.obs.log_decision(
-            store_id="unknown", # Store ID resolved in API layer
+            store_id="unknown",  # filled later in API layer
             pipeline_step="voice_intent_extraction",
             input_data=transcription_result.text,
             output_data=result.model_dump(),

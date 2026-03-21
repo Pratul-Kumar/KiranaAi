@@ -36,23 +36,23 @@ class KhataService:
             parsed = KhataParsedRecord(**data)
         except Exception as e:
             logger.error(f"Khata Parsing Failed: {e}")
-            # Fallback or error
+            # return a clean parse error
             return {"error": "Failed to parse ledger entry"}
         
-        # 1. Resolve Customer
+        # find customer
         cust_res = self.db.table("customers").select("id").ilike("name", f"%{parsed.customer_name}%").eq("store_id", store_id).execute()
         
         if not cust_res.data:
-            # Proactive: Create customer if not exists? For MVP, just return error
+            # keep MVP strict: customer must exist
             return {"error": f"Customer '{parsed.customer_name}' not found"}
             
         customer_id = cust_res.data[0]["id"]
 
-        # 2. Update Ledger
+        # update ledger balance
         ledger_res = self.db.table("khata_ledger").select("balance").eq("customer_id", customer_id).execute()
         current_balance = float(ledger_res.data[0]["balance"]) if ledger_res.data else 0.0
         
-        # Logic: Payment received reduces balance, credit given increases it
+        # payment lowers balance, credit raises it
         if parsed.action == KhataActionEnum.PAYMENT_RECEIVED:
             new_balance = current_balance - parsed.amount
         else:
@@ -65,7 +65,7 @@ class KhataService:
             "updated_at": datetime.utcnow().isoformat()
         }).execute()
         
-        # 3. Recalculate Lead Score (Async)
+        # recalculate lead score
         await self.calculate_lead_score(customer_id)
         
         return {
@@ -80,7 +80,7 @@ class KhataService:
         """
         Enhanced LeadScore with normalized features and risk prediction.
         """
-        # Fetch transaction history & ledger
+        # load transaction and ledger history
         tx_res = self.db.table("transactions").select("total_amount, created_at").eq("customer_id", customer_id).execute()
         ledger_res = self.db.table("khata_ledger").select("balance, last_payment_date").eq("customer_id", customer_id).execute()
         
@@ -88,16 +88,16 @@ class KhataService:
         if not txs:
             return 0.0
 
-        # Frequency: Transactions in last 30 days
+        # simple monthly frequency
         frequency = len(txs) / 30.0 
         
-        # Average Order Value (Normalized)
+        # normalized average order value
         avg_ov = sum(t["total_amount"] for t in txs) / len(txs)
-        norm_aov = min(avg_ov / 5000.0, 1.0) # Assume 5000 is a high AOV
+        norm_aov = min(avg_ov / 5000.0, 1.0)  # 5000 acts as a cap
         
-        # Payment Reliability (Based on balance vs AOV and last payment)
+        # reliability drops when outstanding balance is high
         balance = float(ledger_res.data[0]["balance"]) if ledger_res.data else 0.0
-        reliability = 1.0 - min(balance / (avg_ov * 5 + 1), 1.0) # Risk increases if balance > 5x AOV
+        reliability = 1.0 - min(balance / (avg_ov * 5 + 1), 1.0)  # cap at 5x AOV
         
         lead_score = (frequency * 0.3) + (norm_aov * 0.4) + (reliability * 0.3)
         lead_score = round(min(max(lead_score, 0.0), 1.0), 2)

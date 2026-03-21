@@ -3,9 +3,7 @@ from typing import Literal, Optional
 from enum import Enum
 
 
-# ---------------------------------------------------------------------------
-# AI / Intent
-# ---------------------------------------------------------------------------
+# AI and intent
 
 class IntentEnum(str, Enum):
     STOCK_UPDATE = "stock_update"
@@ -44,9 +42,7 @@ class KhataParsedRecord(BaseModel):
     confidence: float
 
 
-# ---------------------------------------------------------------------------
-# Admin / Auth
-# ---------------------------------------------------------------------------
+# admin auth
 
 class AdminLoginRequest(BaseModel):
     email: str
@@ -58,9 +54,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-# ---------------------------------------------------------------------------
-# Store & Vendor Management
-# ---------------------------------------------------------------------------
+# store and vendor
 
 class StoreCreate(BaseModel):
     name: str
@@ -80,9 +74,7 @@ class AssignVendorRequest(BaseModel):
     vendor_id: str
 
 
-# ---------------------------------------------------------------------------
-# Inventory
-# ---------------------------------------------------------------------------
+# inventory
 
 class InventoryUpdateRequest(BaseModel):
     store_id: str
@@ -90,9 +82,7 @@ class InventoryUpdateRequest(BaseModel):
     quantity_delta: float = Field(..., description="Positive to add stock, negative to subtract")
 
 
-# ---------------------------------------------------------------------------
-# Khata
-# ---------------------------------------------------------------------------
+# khata
 
 class KhataAddRequest(BaseModel):
     customer_id: str = Field(..., description="UUID of the customer")
@@ -102,9 +92,7 @@ class KhataAddRequest(BaseModel):
     )
 
 
-# ---------------------------------------------------------------------------
-# Notifications
-# ---------------------------------------------------------------------------
+# notifications
 
 class BroadcastRequest(BaseModel):
     message: str

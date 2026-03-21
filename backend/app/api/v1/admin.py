@@ -31,9 +31,7 @@ def _is_valid_admin_password(password: str) -> bool:
     return password == settings.ADMIN_PASSWORD
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public routes (no auth required)
-# ──────────────────────────────────────────────────────────────────────────────
+# public routes
 
 @router.get("", summary="Admin API root")
 async def admin_root() -> dict:
@@ -102,9 +100,7 @@ async def admin_login(body: AdminLoginRequest) -> TokenResponse:
     return TokenResponse(access_token=token)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Protected routes (JWT required)
-# ──────────────────────────────────────────────────────────────────────────────
+# protected routes
 
 @router.post("/stores", dependencies=[Depends(get_current_admin)])
 async def create_store(body: StoreCreate) -> dict:

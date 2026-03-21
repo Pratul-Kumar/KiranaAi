@@ -67,7 +67,7 @@ def _upsert(table: str, data: dict, unique_keys: list[str]) -> dict | None:
 def seed():
     logger.info("=== Seeding ZnShop Demo Data ===\n")
 
-    # 1. Vendors
+    # vendors
     logger.info("── Vendors ──")
     vendor_id_map: dict[str, str] = {}
     for v in VENDORS:
@@ -75,7 +75,7 @@ def seed():
         if record:
             vendor_id_map[v["category"]] = record["id"]
 
-    # 2. Stores + SKUs + Customers
+    # stores and related data
     logger.info("\n── Stores ──")
     for store_data in STORES:
         store = _upsert("stores", store_data, ["contact_phone"])
@@ -83,7 +83,7 @@ def seed():
             continue
         store_id = store["id"]
 
-        # 3. SKUs + Inventory
+        # SKUs and inventory
         logger.info(f"\n  SKUs for {store_data['name']}")
         for sku_data in SKUS_PER_STORE:
             sku_payload = {**sku_data, "store_id": store_id}
@@ -91,7 +91,7 @@ def seed():
             if sku:
                 _upsert("inventory", {"sku_id": sku["id"], "stock_level": 50}, ["sku_id"])
 
-        # 4. Customers + Khata
+        # customers and khata
         logger.info(f"  Customers for {store_data['name']}")
         for cust_data in CUSTOMERS_PER_STORE:
             cust_payload = {**cust_data, "store_id": store_id}
@@ -99,7 +99,7 @@ def seed():
             if cust:
                 _upsert("khata_ledger", {"customer_id": cust["id"], "balance": 0, "lead_score": 0}, ["customer_id"])
 
-        # 5. Assign all vendors to each store
+        # assign vendors
         for vendor_id in vendor_id_map.values():
             _upsert("store_vendors", {"store_id": store_id, "vendor_id": vendor_id}, ["store_id", "vendor_id"])
 

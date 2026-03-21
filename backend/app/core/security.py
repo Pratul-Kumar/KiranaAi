@@ -14,7 +14,7 @@ settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# tokenUrl tells Swagger where to POST credentials for the Authorize button
+# Swagger posts credentials here
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/token")
 
 

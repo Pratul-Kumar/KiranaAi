@@ -12,7 +12,7 @@ st.set_page_config(
 API_BASE = os.environ.get("ZNSHOP_API_URL", "http://localhost:8000/api/v1")
 
 
-# ─── Session State ────────────────────────────────────────────────
+# session state
 if "token" not in st.session_state:
     st.session_state.token = None
 
@@ -34,7 +34,7 @@ def _api(method: str, path: str, **kwargs) -> dict | None:
         return None
 
 
-# ─── Login ────────────────────────────────────────────────────────
+# login
 if not st.session_state.token:
     st.title("🏪 ZnShop Admin — Login")
     with st.form("login"):
@@ -53,7 +53,7 @@ if not st.session_state.token:
     st.stop()
 
 
-# ─── Sidebar ──────────────────────────────────────────────────────
+# sidebar
 st.sidebar.title("🏪 ZnShop Admin")
 section = st.sidebar.radio(
     "Navigate",
@@ -63,7 +63,7 @@ if st.sidebar.button("Logout"):
     st.session_state.token = None
     st.rerun()
 
-# ─── Dashboard Overview ───────────────────────────────────────────
+# dashboard
 if section == "📊 Dashboard":
     st.title("📊 Dashboard Overview")
     col1, col2, col3 = st.columns(3)
@@ -80,7 +80,7 @@ if section == "📊 Dashboard":
         st.subheader("Latest Demand Alerts")
         st.dataframe(alerts["alerts"][:10], use_container_width=True)
 
-# ─── Stores ───────────────────────────────────────────────────────
+# stores
 elif section == "🏬 Stores":
     st.title("🏬 Store Management")
 
@@ -104,7 +104,7 @@ elif section == "🏬 Stores":
         st.subheader(f"All Stores ({len(data['stores'])})")
         st.dataframe(data["stores"], use_container_width=True)
 
-# ─── Vendors ──────────────────────────────────────────────────────
+# vendors
 elif section == "🚚 Vendors":
     st.title("🚚 Vendor Management")
 
@@ -143,7 +143,7 @@ elif section == "🚚 Vendors":
         st.subheader(f"All Vendors ({len(data['vendors'])})")
         st.dataframe(data["vendors"], use_container_width=True)
 
-# ─── Inventory ────────────────────────────────────────────────────
+# inventory
 elif section == "📦 Inventory":
     st.title("📦 Inventory")
     stores_data = _api("get", "/admin/stores")
@@ -155,7 +155,7 @@ elif section == "📦 Inventory":
             st.subheader(f"Inventory — {sel}")
             st.dataframe(data.get("inventory", []), use_container_width=True)
 
-# ─── Khata ────────────────────────────────────────────────────────
+# khata
 elif section == "📔 Khata":
     st.title("📔 Khata Records")
     stores_data = _api("get", "/admin/stores")
@@ -167,14 +167,14 @@ elif section == "📔 Khata":
             st.subheader(f"Khata — {sel}")
             st.dataframe(data.get("khata", []), use_container_width=True)
 
-# ─── Alerts ───────────────────────────────────────────────────────
+# alerts
 elif section == "🔔 Alerts":
     st.title("🔔 Demand Alerts")
     data = _api("get", "/admin/alerts")
     if data:
         st.dataframe(data.get("alerts", []), use_container_width=True)
 
-# ─── Broadcast ────────────────────────────────────────────────────
+# broadcast
 elif section == "📢 Broadcast":
     st.title("📢 Broadcast Message")
     with st.form("broadcast"):

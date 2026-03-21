@@ -74,3 +74,10 @@ cover/
 thumbs.db
 Thumbs.db
 Desktop.ini
+
+# Extra local caches
+.mypy_cache/
+.ruff_cache/
+
+# Local cleanup artifacts
+cleanup_deleted_files.log

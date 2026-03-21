@@ -35,7 +35,7 @@ class SpeechService:
                 language=source_lang
             )
 
-        # Implementation logic for production ASR (Bhashini/Whisper/etc.)
+        # build ASR request payload
         payload = {
             "modelId": "production-model-id",
             "task": "asr",
@@ -45,7 +45,7 @@ class SpeechService:
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # Actual API call would go here
+                # real API call goes here
                 # response = await client.post(self.asr_url, json=payload, headers={"Authorization": self.api_key})
                 # response.raise_for_status()
                 # data = response.json()

@@ -2,7 +2,6 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from backend.app.core.security import get_current_admin
 from backend.app.db.supabase import get_supabase_admin_client
 
 router = APIRouter(prefix="/customers", tags=["Compliance"])
@@ -16,7 +15,7 @@ async def delete_customer(customer_id: str):
     """
     db = get_supabase_admin_client()
     
-    # 1. Log the audit event first
+    # write audit log first
     db.table("audit_logs").insert({
         "action": "DELETE_CUSTOMER",
         "table_name": "customers",
@@ -24,7 +23,7 @@ async def delete_customer(customer_id: str):
         "details": {"reason": "User request for data deletion"}
     }).execute()
     
-    # 2. Perform deletion
+    # then delete customer
     res = db.table("customers").delete().eq("id", customer_id).execute()
     
     if not res.data:

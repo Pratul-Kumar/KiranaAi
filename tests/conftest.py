@@ -5,10 +5,10 @@ Injects dummy env vars so Pydantic Settings validation passes without a real .en
 import os
 import sys
 
-# Insert backend/ onto sys.path so `import backend.app.*` resolves
+# let tests import backend.app.*
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-# Inject minimum required env vars before any app module is imported
+# set required env vars before imports
 os.environ.setdefault("SUPABASE_URL",              "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_KEY",              "test-anon-key")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")

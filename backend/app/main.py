@@ -67,12 +67,12 @@ async def log_requests(request: Request, call_next):
 
 
 app.include_router(whatsapp.router, prefix="/api/v1")
-app.include_router(compliance.router, prefix="/api/v1")   # router owns /customers prefix
+app.include_router(compliance.router, prefix="/api/v1")  # serves /customers routes
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
-app.include_router(alerts.router,     prefix="/api/v1")   # router prefix: /alerts
-app.include_router(khata.router,      prefix="/api/v1")   # router prefix: /khata
-app.include_router(dashboard_router)                       # HTML dashboard at /admin
+app.include_router(alerts.router, prefix="/api/v1")  # serves /alerts routes
+app.include_router(khata.router, prefix="/api/v1")  # serves /khata routes
+app.include_router(dashboard_router)  # HTML dashboard
 
 
 @app.on_event("startup")

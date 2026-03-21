@@ -15,11 +15,11 @@ def setup_experiment_tracking(experiment_name: str = "kirana_ai_experiments"):
         logger.warning("MLflow is not installed. Experiment tracking is disabled.")
         return
     
-    # MLflow URI setup
+    # configure tracking URI
     mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
     mlflow.set_tracking_uri(mlflow_uri)
     
-    # Set experiment
+    # select experiment
     mlflow.set_experiment(experiment_name)
     logger.info(f"MLflow experiment '{experiment_name}' initialized.")
 

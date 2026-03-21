@@ -24,9 +24,7 @@ templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 COOKIE_NAME = "znshop_session"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Session helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# session helpers
 
 def _get_session_token(znshop_session: str | None = Cookie(default=None)) -> str | None:
     return znshop_session
@@ -64,9 +62,7 @@ def _ctx(request: Request, active: str, email: str, **extra) -> dict:
     """Build base template context."""
     return {"request": request, "active": active, "session_email": email, **extra}
 
-# ──────────────────────────────────────────────────────────────────────────────
-# API Helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# API helpers
 async def api_get(request: Request, path: str, token: str) -> dict:
     url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
     async with httpx.AsyncClient() as client:
@@ -88,9 +84,7 @@ async def api_delete(request: Request, path: str, token: str) -> dict:
         resp.raise_for_status()
         return resp.json()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Auth
-# ──────────────────────────────────────────────────────────────────────────────
+# auth
 
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request, znshop_session: str | None = Cookie(default=None)):
@@ -131,9 +125,7 @@ async def logout():
     return response
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Dashboard Home
-# ──────────────────────────────────────────────────────────────────────────────
+# dashboard home
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_home(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
@@ -159,9 +151,7 @@ async def dashboard_home(request: Request, email: str = Depends(_require_session
         logger.error(f"Dashboard home API error: {e}")
         return HTMLResponse("Dashboard error", status_code=500)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stores
-# ──────────────────────────────────────────────────────────────────────────────
+# stores
 
 @router.get("/stores", response_class=HTMLResponse, include_in_schema=False)
 async def stores_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token), flash: str | None = None):
@@ -209,9 +199,7 @@ async def store_delete(
         logger.error("Store delete API error: %s", e)
     return RedirectResponse("/admin/stores", status_code=302)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Vendors
-# ──────────────────────────────────────────────────────────────────────────────
+# vendors
 
 @router.get("/vendors", response_class=HTMLResponse, include_in_schema=False)
 async def vendors_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
@@ -265,9 +253,7 @@ async def vendor_assign(
     return RedirectResponse("/admin/vendors", status_code=302)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Inventory
-# ──────────────────────────────────────────────────────────────────────────────
+# inventory
 
 @router.get("/inventory", response_class=HTMLResponse, include_in_schema=False)
 async def inventory_page(
@@ -288,9 +274,7 @@ async def inventory_page(
         stores=stores_data.get("stores", []), inventory=inventory, selected_store=store_id))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Khata
-# ──────────────────────────────────────────────────────────────────────────────
+# khata
 
 @router.get("/khata", response_class=HTMLResponse, include_in_schema=False)
 async def khata_page(

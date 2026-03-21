@@ -62,7 +62,7 @@ def test_docs_available(client):
 
 def test_public_alerts_returns_json(client):
     r = client.get("/api/v1/alerts")
-    # Returns 200 with {"alerts": [...]} even with mocked Supabase
+    # should return alerts payload
     assert r.status_code == 200
     assert "alerts" in r.json()
 

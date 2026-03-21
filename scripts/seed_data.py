@@ -8,7 +8,7 @@ import logging
 import sys
 import os
 
-# Allow running from project root
+# allow running from project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from dotenv import load_dotenv
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 db = get_supabase_admin_client()
 
-# ── Demo Stores (per spec) ──────────────────────────────────────────────────
+# demo stores
 STORES = [
     {"name": "Ravi Kirana",          "contact_phone": "919534177001", "owner_name": "Ravi Kumar",   "address": "Sector 12, Delhi"},
     {"name": "Gupta General Store",  "contact_phone": "919534177002", "owner_name": "Suresh Gupta", "address": "MG Road, Lucknow"},
@@ -29,7 +29,7 @@ STORES = [
     {"name": "Patel Mart",           "contact_phone": "919534177004", "owner_name": "Amrit Patel",  "address": "CG Road, Ahmedabad"},
 ]
 
-# ── Demo Vendors (per spec — 6 vendors) ────────────────────────────────────
+# demo vendors
 VENDORS = [
     {"name": "Milk Supplier",       "phone": "919534178001", "category": "dairy"},
     {"name": "Maggi Distributor",   "phone": "919534178002", "category": "snacks"},
@@ -39,7 +39,7 @@ VENDORS = [
     {"name": "Oil Supplier",         "phone": "919534178006", "category": "oils"},
 ]
 
-# ── SKUs (same across all stores for demo) ──────────────────────────────────
+# demo SKUs
 SKUS_PER_STORE = [
     {"name": "Milk",     "category_path": "dairy"},
     {"name": "Bread",    "category_path": "bakery"},
@@ -51,7 +51,7 @@ SKUS_PER_STORE = [
     {"name": "Oil",      "category_path": "oils"},
 ]
 
-# ── Demo Customers (3 per store) ────────────────────────────────────────────
+# demo customers
 CUSTOMERS_PER_STORE = [
     {"name": "Ramesh", "phone": "919534179001"},
     {"name": "Priya",  "phone": "919534179002"},
@@ -76,15 +76,15 @@ def _upsert(table: str, data: dict, unique_keys: list[str], return_col: str = "i
 def seed() -> None:
     logger.info("=== Seeding ZnShop Demo Data ===\n")
 
-    # 1. Vendors
+    # vendors
     logger.info("── Vendors ──")
-    vendor_id_map: dict[str, str] = {}  # category -> vendor_id
+    vendor_id_map: dict[str, str] = {}  # category to vendor id
     for v in VENDORS:
         record = _upsert("vendors", v, ["phone"])
         if record:
             vendor_id_map[v["category"]] = record["id"]
 
-    # 2. Stores → SKUs + Customers + Vendor Assignments
+    # stores and related data
     logger.info("\n── Stores ──")
     for store_data in STORES:
         store = _upsert("stores", store_data, ["contact_phone"])
@@ -92,7 +92,7 @@ def seed() -> None:
             continue
         store_id = store["id"]
 
-        # SKUs & initial inventory
+        # SKUs and inventory
         logger.info(f"\n  SKUs for {store_data['name']}")
         for sku_data in SKUS_PER_STORE:
             sku_payload = {**sku_data, "store_id": store_id}
@@ -100,10 +100,10 @@ def seed() -> None:
             if sku:
                 _upsert("inventory", {"sku_id": sku["id"], "stock_level": 50}, ["sku_id"], return_col="sku_id")
 
-        # Customers & khata ledger
+        # customers and khata
         logger.info(f"  Customers for {store_data['name']}")
         for cust_data in CUSTOMERS_PER_STORE:
-            # Unique phones per store by varying the last digit with store index
+            # keep phone unique per store
             store_idx = STORES.index(store_data)
             phone = cust_data["phone"][:-1] + str(store_idx + 1)
             cust_payload = {**cust_data, "phone": phone, "store_id": store_id}
@@ -116,7 +116,7 @@ def seed() -> None:
                     return_col="customer_id"
                 )
 
-        # Assign all vendors to this store
+        # assign vendors to store
         for vendor_id in vendor_id_map.values():
             _upsert("store_vendors", {"store_id": store_id, "vendor_id": vendor_id}, ["store_id", "vendor_id"], return_col="store_id")
 
