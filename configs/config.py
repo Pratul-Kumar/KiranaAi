@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # supabase
-    SUPABASE_URL: str
-    SUPABASE_KEY: str
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     # AI

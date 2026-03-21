@@ -43,18 +43,23 @@ LOG_DIR     = ROOT / "logs"
 LOG_FILE    = LOG_DIR / "app.log"
 ENV_FILE    = BACKEND_DIR / ".env"
 REQ_FILE    = BACKEND_DIR / "requirements.txt"
-PYTHON      = sys.executable
+PYTHON      = str((VENV_DIR / "Scripts" / "python.exe") if (VENV_DIR / "Scripts" / "python.exe").exists() else Path(sys.executable))
 
 # logging
+
+_handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+if os.environ.get("APP_ENABLE_RUNNER_FILE_LOG", "false").lower() == "true":
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        _handlers.append(logging.FileHandler(LOG_FILE, encoding="utf-8"))
+    except Exception:
+        pass
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-    ],
+    handlers=_handlers,
 )
 log = logging.getLogger("znshop.runner")
 
@@ -106,19 +111,7 @@ def install_dependencies() -> None:
         return
     info("Checking/installing dependencies…")
     
-    # prefer uv when available
-    use_uv = False
-    try:
-        use_uv = subprocess.run(["uv", "--version"], capture_output=True).returncode == 0
-    except FileNotFoundError:
-        pass
-    
-    if use_uv:
-        cmd = ["uv", "pip", "install", "-q", "-r", str(REQ_FILE)]
-    else:
-        cmd = [PYTHON, "-m", "pip", "install", "-q", "-r", str(REQ_FILE)]
-        if os.environ.get("VIRTUAL_ENV"):
-             cmd.append("--break-system-packages") 
+    cmd = [PYTHON, "-m", "pip", "install", "-q", "-r", str(REQ_FILE)]
 
     info(f"Running: {' '.join(map(str, cmd))}")
     try:
@@ -233,15 +226,28 @@ def start_fastapi() -> subprocess.Popen:
 
     info("Starting FastAPI on :8000…")
     env_patch = {"PYTHONPATH": str(ROOT)}
+    reload_enabled = os.environ.get("ZNSHOP_RELOAD", "false").lower() == "true"
+    cmd = [PYTHON, "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    if reload_enabled:
+        cmd.append("--reload")
+
     p = _launch(
         "fastapi",
-        [PYTHON, "-m", "uvicorn", "backend.app.main:app",
-         "--host", "0.0.0.0", "--port", "8000", "--reload"],
+        cmd,
         cwd=ROOT,
         env=env_patch,
     )
     if not _wait_for_port(8000, timeout=20):
-        err("FastAPI did not start within 20 s. Check logs/app.log for details.")
+        if p.poll() is not None:
+            try:
+                output = p.stdout.read() if p.stdout else ""
+            except Exception:
+                output = ""
+            err("FastAPI process exited before startup.")
+            if output:
+                err(f"FastAPI output:\n{output[-2000:]}")
+        else:
+            err("FastAPI did not start within 20 s.")
         sys.exit(1)
     ok("FastAPI running → http://localhost:8000")
     return p

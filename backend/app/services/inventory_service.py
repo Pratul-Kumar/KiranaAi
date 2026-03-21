@@ -12,8 +12,20 @@ class InventoryOrchestrator:
     """Manages stock updates and reorder logic with deterministic SKU matching."""
 
     def __init__(self) -> None:
-        self.db = get_supabase_admin_client()
-        self.demand_engine = DemandSensingEngine()
+        self._db = None
+        self._demand_engine = None
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_supabase_admin_client()
+        return self._db
+
+    @property
+    def demand_engine(self) -> DemandSensingEngine:
+        if self._demand_engine is None:
+            self._demand_engine = DemandSensingEngine()
+        return self._demand_engine
 
     async def _resolve_sku_id(self, sku_name: str, store_id: str) -> Optional[str]:
         """Deterministic SKU matching: exact match first, then fuzzy."""

@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 from fastapi import FastAPI, Request
@@ -11,9 +12,9 @@ from configs.config import get_settings
 from backend.app.core.logging_config import setup_logging
 from backend.app.api.v1 import whatsapp, compliance
 from backend.app.api.v1 import admin, inventory, alerts, khata
-from backend.app.db.supabase import get_supabase_client_safe
 from backend.app.dashboard.router import router as dashboard_router
 
+print("main loaded")
 setup_logging()
 
 logger = logging.getLogger(__name__)
@@ -73,20 +74,26 @@ app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")  # serves /alerts routes
 app.include_router(khata.router, prefix="/api/v1")  # serves /khata routes
 app.include_router(dashboard_router)  # HTML dashboard
+print("routes loaded")
 
 
 @app.on_event("startup")
 async def _log_routes() -> None:
+    print("startup begin")
     from fastapi.routing import APIRoute
     routes = [r for r in app.routes if isinstance(r, APIRoute)]
     logger.info("=== Registered routes (%d) ===", len(routes))
     for r in sorted(routes, key=lambda x: x.path):
         methods = ",".join(sorted(r.methods or []))
         logger.info("  %-8s %s", methods, r.path)
-    if get_supabase_client_safe() is None:
-        logger.warning("Supabase is unavailable at startup; app will continue and retry on demand")
-    else:
-        logger.info("Supabase client initialized successfully")
+    logger.info(
+        "ENV | SUPABASE_URL=%s SUPABASE_KEY=%s REDIS_URL=%s AI_MODEL_ENDPOINT=%s",
+        "set" if os.getenv("SUPABASE_URL") else "missing",
+        "set" if os.getenv("SUPABASE_KEY") else "missing",
+        "set" if os.getenv("REDIS_URL") else "missing",
+        "set" if (os.getenv("AI_MODEL_ENDPOINT") or os.getenv("OLLAMA_URL")) else "missing",
+    )
+    print("services initialized")
 
 
 @app.get("/health", tags=["Health"])

@@ -13,8 +13,14 @@ class KhataService:
     """Handles production-grade khata digitization and LeadScore calculation."""
     
     def __init__(self):
-        self.db = get_supabase_admin_client()
+        self._db = None
         self.slm = SLMService()
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_supabase_admin_client()
+        return self._db
 
     async def parse_khata_record(self, text: str, store_id: str):
         """

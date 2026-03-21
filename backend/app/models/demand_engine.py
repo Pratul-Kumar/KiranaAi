@@ -14,7 +14,13 @@ class DemandSensingEngine:
     """
 
     def __init__(self) -> None:
-        self.db = get_supabase_admin_client()
+        self._db = None
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_supabase_admin_client()
+        return self._db
 
     def _calculate_time_decay(self, timestamp_str: str, half_life_days: int = 7) -> float:
         """Applies exponential time decay to a signal."""

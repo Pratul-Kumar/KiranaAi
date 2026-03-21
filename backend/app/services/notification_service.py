@@ -13,8 +13,20 @@ settings = get_settings()
 
 class NotificationService:
     def __init__(self) -> None:
-        self.db = get_supabase_admin_client()
-        self.whatsapp = WhatsAppService()
+        self._db = None
+        self._whatsapp = None
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_supabase_admin_client()
+        return self._db
+
+    @property
+    def whatsapp(self) -> WhatsAppService:
+        if self._whatsapp is None:
+            self._whatsapp = WhatsAppService()
+        return self._whatsapp
 
     async def send_broadcast(
         self,

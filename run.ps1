@@ -6,34 +6,39 @@ $BaseDir = Get-Location
 if ($PSScriptRoot) { $BaseDir = $PSScriptRoot }
 
 $VenvDir = Join-Path $BaseDir ".venv"
+$VenvPython = Join-Path $VenvDir "Scripts\python.exe"
 $CfgPath = Join-Path $VenvDir "pyvenv.cfg"
 
-if (-not (Test-Path $CfgPath)) {
-    Write-Warning "Virtual environment not found at $VenvDir. Please run: uv venv"
-    # Proceed anyway with system python if allowed
-}
-
-# Find pyvenv.cfg and extract home path
-if (Test-Path $CfgPath) {
-    # Manually parse since ConvertFrom-StringData can be finicky with paths
-    $CfgLines = Get-Content $CfgPath
-    $HomeDir = ""
-    foreach ($Line in $CfgLines) {
-        if ($Line -match "^home\s*=\s*(.*)") {
-            $HomeDir = $Matches[1].Trim()
-            break
-        }
-    }
-
-    if (-not $HomeDir) {
-        Write-Warning "Could not find 'home' in pyvenv.cfg. Using system python."
-        $BasePython = "python"
-    } else {
-        $BasePython = Join-Path $HomeDir "python.exe"
-    }
+if (Test-Path $VenvPython) {
+    $BasePython = $VenvPython
 } else {
-    Write-Warning "pyvenv.cfg not found. Using system python."
-    $BasePython = "python"
+    if (-not (Test-Path $CfgPath)) {
+        Write-Warning "Virtual environment not found at $VenvDir. Please run: uv venv"
+        # Proceed anyway with system python if allowed
+    }
+
+    # Find pyvenv.cfg and extract home path
+    if (Test-Path $CfgPath) {
+        # Manually parse since ConvertFrom-StringData can be finicky with paths
+        $CfgLines = Get-Content $CfgPath
+        $HomeDir = ""
+        foreach ($Line in $CfgLines) {
+            if ($Line -match "^home\s*=\s*(.*)") {
+                $HomeDir = $Matches[1].Trim()
+                break
+            }
+        }
+
+        if (-not $HomeDir) {
+            Write-Warning "Could not find 'home' in pyvenv.cfg. Using system python."
+            $BasePython = "python"
+        } else {
+            $BasePython = Join-Path $HomeDir "python.exe"
+        }
+    } else {
+        Write-Warning "pyvenv.cfg not found. Using system python."
+        $BasePython = "python"
+    }
 }
 
 if (-not (Test-Path $BasePython)) {
