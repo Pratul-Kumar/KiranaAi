@@ -151,13 +151,13 @@ async def login_submit(
     response.set_cookie(
         COOKIE_NAME, token,
         httponly=True, samesite="lax",
-        secure=not settings.DEBUG,
+        secure=True,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
         "access_token", token,
         httponly=True, samesite="lax",
-        secure=not settings.DEBUG,
+        secure=True,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     logger.info("Dashboard login: %s", email)
@@ -206,12 +206,11 @@ async def dashboard_home(request: Request, email: str = Depends(_require_session
 
 @router.get("/stores", response_class=HTMLResponse, include_in_schema=False)
 async def stores_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token), flash: str | None = None):
-    try:
-        data = await api_get(request, "stores", token)
-        return templates.TemplateResponse("stores.html", _ctx(request, "stores", email, stores=data.get("stores", []), flash=None))
-    except Exception as e:
-        logger.error(f"Error fetching stores: {e}")
-        return templates.TemplateResponse("stores.html", _ctx(request, "stores", email, stores=[], flash={"type": "error", "msg": "Failed to load stores"}))
+    stores = await _safe_api_get(request, token, "stores", "stores", [])
+    return templates.TemplateResponse(
+        "stores.html",
+        _ctx(request, "stores", email, stores=stores, flash=None),
+    )
 
 
 @router.post("/stores/create", include_in_schema=False)
