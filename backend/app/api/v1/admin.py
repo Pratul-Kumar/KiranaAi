@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from configs.config import get_settings
 from backend.app.core.security import create_access_token, get_current_admin, verify_password
-from backend.app.db.supabase import get_supabase_admin_client
+from backend.app.db.supabase import get_supabase_admin_client, get_supabase_admin_key_source
 from backend.app.models.schemas import (
     AdminLoginRequest,
     AssignVendorRequest,
@@ -244,7 +244,8 @@ async def debug_db_status(request: Request, user: dict = Depends(get_current_use
         return {
             "supabase": {
                 "url": url,
-                "using_service_role": bool(service_role_key),
+                "using_service_role": get_supabase_admin_key_source() == "service_role",
+                "effective_key_source": get_supabase_admin_key_source() or "unknown",
                 "anon_key_present": bool(key),
                 "service_role_key_present": bool(service_role_key),
             },
@@ -259,7 +260,8 @@ async def debug_db_status(request: Request, user: dict = Depends(get_current_use
         return {
             "supabase": {
                 "url": url,
-                "using_service_role": bool(service_role_key),
+                "using_service_role": get_supabase_admin_key_source() == "service_role",
+                "effective_key_source": get_supabase_admin_key_source() or "unknown",
                 "anon_key_present": bool(key),
                 "service_role_key_present": bool(service_role_key),
             },

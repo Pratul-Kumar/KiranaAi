@@ -12,6 +12,7 @@ settings = get_settings()
 
 _anon_client: Client | None = None
 _admin_client: Client | None = None
+_admin_key_source: str | None = None
 
 
 def _mask_key(key: str) -> str:
@@ -46,19 +47,43 @@ def get_supabase_client() -> Client:
 
 
 def get_supabase_admin_client() -> Client:
-    global _admin_client
+    global _admin_client, _admin_key_source
     if _admin_client is None:
         url, key, service_role_key = _env_values()
-        use_key = service_role_key or key
-        if not url or not use_key:
+        if not url or (not service_role_key and not key):
             raise ValueError("Missing Supabase env variables: SUPABASE_URL/SUPABASE_KEY")
-        logger.info(
-            "Initializing Supabase admin client | url=%s key_source=%s",
-            url,
-            "service_role" if service_role_key else "anon_key",
-        )
-        _admin_client = create_client(url, use_key)
+
+        service_role_error: str | None = None
+        anon_error: str | None = None
+
+        if service_role_key:
+            try:
+                logger.info("Initializing Supabase admin client | url=%s key_source=service_role", url)
+                _admin_client = create_client(url, service_role_key)
+                _admin_key_source = "service_role"
+            except Exception as exc:
+                service_role_error = str(exc)
+                logger.warning("Service-role key failed for Supabase admin client; falling back to anon key: %s", exc)
+
+        if _admin_client is None and key:
+            try:
+                logger.info("Initializing Supabase admin client | url=%s key_source=anon_key", url)
+                _admin_client = create_client(url, key)
+                _admin_key_source = "anon_key"
+            except Exception as exc:
+                anon_error = str(exc)
+
+        if _admin_client is None:
+            raise ValueError(
+                "Failed to initialize Supabase admin client"
+                f" | service_role_error={service_role_error or 'n/a'}"
+                f" | anon_key_error={anon_error or 'n/a'}"
+            )
     return _admin_client
+
+
+def get_supabase_admin_key_source() -> str | None:
+    return _admin_key_source
 
 
 def get_supabase_client_safe() -> Client | None:
