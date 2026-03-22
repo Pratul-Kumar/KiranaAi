@@ -36,6 +36,11 @@ async def verify_webhook(
     hub_verify_token: str = Query(None, alias="hub.verify_token"),
     hub_challenge: str = Query(None, alias="hub.challenge"),
 ) -> Response:
+    if not settings.WHATSAPP_VERIFY_TOKEN:
+        logger.error("WHATSAPP_VERIFY_TOKEN is not configured")
+        return Response(status_code=500)
+    if not hub_mode or not hub_verify_token or not hub_challenge:
+        return Response(status_code=400)
     if hub_mode == "subscribe" and hub_verify_token == settings.WHATSAPP_VERIFY_TOKEN:
         return Response(content=hub_challenge)
     return Response(status_code=403)
@@ -44,7 +49,7 @@ async def verify_webhook(
 @router.post("/webhook")
 async def whatsapp_webhook(request: Request) -> dict:
     body = await request.json()
-    logger.debug(f"Webhook received: {body}")
+    logger.debug("Webhook received")
     ai_service = _get_ai_service()
     inventory_service = _get_inventory_service()
     whatsapp_service = _get_whatsapp_service()
@@ -57,17 +62,21 @@ async def whatsapp_webhook(request: Request) -> dict:
         if "messages" not in value:
             return {"status": "event_received"}
 
-        message = value["messages"][0]
-        from_phone = message["from"]
-        msg_type = message["type"]
+        message = value.get("messages", [{}])[0]
+        from_phone = message.get("from")
+        msg_type = message.get("type")
+        if not from_phone or not msg_type:
+            logger.warning("Webhook payload missing sender/type")
+            return {"status": "invalid_payload"}
         msg_body = ""
         button_id = None
 
         if msg_type == "text":
-            msg_body = message["text"]["body"]
+            msg_body = (message.get("text") or {}).get("body", "")
         elif msg_type == "interactive":
-            msg_body = message["interactive"]["button_reply"]["title"]
-            button_id = message["interactive"]["button_reply"]["id"]
+            button_reply = (message.get("interactive") or {}).get("button_reply") or {}
+            msg_body = button_reply.get("title", "")
+            button_id = button_reply.get("id")
             logger.info(f"Button click: id={button_id} title={msg_body}")
 
         logger.info(f"Incoming message: from={from_phone} type={msg_type} body={msg_body!r}")

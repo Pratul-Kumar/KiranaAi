@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,11 +15,11 @@ from backend.app.api.v1 import whatsapp, compliance
 from backend.app.api.v1 import admin, inventory, alerts, khata
 from backend.app.dashboard.router import router as dashboard_router
 
-print("main loaded")
 setup_logging()
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+logger.info("Main module loaded")
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -74,26 +75,37 @@ app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")  # serves /alerts routes
 app.include_router(khata.router, prefix="/api/v1")  # serves /khata routes
 app.include_router(dashboard_router)  # HTML dashboard
-print("routes loaded")
+logger.info("Routes loaded")
 
 
 @app.on_event("startup")
 async def _log_routes() -> None:
-    print("startup begin")
+    logger.info("Startup begin")
     from fastapi.routing import APIRoute
     routes = [r for r in app.routes if isinstance(r, APIRoute)]
     logger.info("=== Registered routes (%d) ===", len(routes))
     for r in sorted(routes, key=lambda x: x.path):
         methods = ",".join(sorted(r.methods or []))
         logger.info("  %-8s %s", methods, r.path)
+    supabase_url = ((settings.SUPABASE_URL or "") or (os.getenv("SUPABASE_URL") or "")).strip()
+    supabase_key = ((settings.SUPABASE_KEY or "") or (os.getenv("SUPABASE_KEY") or "")).strip()
+    service_role_key = ((settings.SUPABASE_SERVICE_ROLE_KEY or "") or (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")).strip()
+    supabase_host = urlparse(supabase_url).netloc if supabase_url else "missing"
+    project_ref = supabase_host.split(".")[0] if supabase_host and supabase_host != "missing" else "unknown"
+    logger.info(
+        "SUPABASE_TARGET | host=%s project_ref=%s key_source=%s",
+        supabase_host,
+        project_ref,
+        "service_role" if service_role_key else ("anon_key" if supabase_key else "missing"),
+    )
     logger.info(
         "ENV | SUPABASE_URL=%s SUPABASE_KEY=%s REDIS_URL=%s AI_MODEL_ENDPOINT=%s",
-        "set" if os.getenv("SUPABASE_URL") else "missing",
-        "set" if os.getenv("SUPABASE_KEY") else "missing",
-        "set" if os.getenv("REDIS_URL") else "missing",
-        "set" if (os.getenv("AI_MODEL_ENDPOINT") or os.getenv("OLLAMA_URL")) else "missing",
+        "set" if supabase_url else "missing",
+        "set" if supabase_key else "missing",
+        "set" if ((settings.REDIS_URL or "") or (os.getenv("REDIS_URL") or "")).strip() else "missing",
+        "set" if (((settings.AI_MODEL_ENDPOINT or "") or (settings.OLLAMA_URL or "") or (os.getenv("AI_MODEL_ENDPOINT") or "") or (os.getenv("OLLAMA_URL") or "")).strip()) else "missing",
     )
-    print("services initialized")
+    logger.info("Services initialized")
 
 
 @app.get("/health", tags=["Health"])

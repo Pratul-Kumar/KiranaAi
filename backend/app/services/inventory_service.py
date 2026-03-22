@@ -46,36 +46,39 @@ class InventoryOrchestrator:
         """Updates inventory levels based on structured AI output."""
         sku_name = ai_result.sku
         qty = ai_result.quantity or 1.0
+        try:
+            sku_id = await self._resolve_sku_id(sku_name, store_id)
 
-        sku_id = await self._resolve_sku_id(sku_name, store_id)
+            if not sku_id:
+                logger.info("SKU '%s' not found for store %s; logging lost sale.", sku_name, store_id)
+                self.db.table("lost_sales").insert({
+                    "store_id": store_id,
+                    "sku_name": sku_name,
+                    "requested_qty": qty,
+                    "detected_at": "now()",
+                }).execute()
+                return {"status": "not_found", "sku_name": sku_name, "detail": "SKU not found; logged as lost sale"}
 
-        if not sku_id:
-            logger.info(f"SKU '{sku_name}' not found. Logging as lost sale.")
-            self.db.table("lost_sales").insert({
-                "store_id": store_id,
-                "sku_name": sku_name,
-                "requested_qty": qty,
-                "detected_at": "now()",
+            inv_res = self.db.table("inventory").select("stock_level").eq("sku_id", sku_id).execute()
+            current_stock = float(inv_res.data[0]["stock_level"]) if inv_res.data else 0.0
+            new_stock = current_stock + qty
+
+            self.db.table("inventory").upsert({
+                "sku_id": sku_id,
+                "stock_level": new_stock,
+                "last_updated": "now()",
             }).execute()
-            return {"status": "lost_sale_logged", "sku_name": sku_name}
 
-        inv_res = self.db.table("inventory").select("stock_level").eq("sku_id", sku_id).execute()
-        current_stock = float(inv_res.data[0]["stock_level"]) if inv_res.data else 0.0
-        new_stock = current_stock + qty
+            alert_triggered = await self.demand_engine.check_threshold_and_alert(sku_id)
 
-        self.db.table("inventory").upsert({
-            "sku_id": sku_id,
-            "stock_level": new_stock,
-            "last_updated": "now()",
-        }).execute()
-
-        alert_triggered = await self.demand_engine.check_threshold_and_alert(sku_id)
-
-        return {
-            "status": "updated",
-            "sku_id": sku_id,
-            "new_stock": new_stock,
-            "alert_triggered": alert_triggered,
-            "confidence": ai_result.confidence,
-        }
+            return {
+                "status": "updated",
+                "sku_id": sku_id,
+                "new_stock": new_stock,
+                "alert_triggered": alert_triggered,
+                "confidence": ai_result.confidence,
+            }
+        except Exception as exc:
+            logger.exception("Inventory orchestrator update failed: %s", exc)
+            return {"status": "error", "detail": str(exc)}
 

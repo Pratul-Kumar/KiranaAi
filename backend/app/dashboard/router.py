@@ -27,9 +27,6 @@ COOKIE_NAME = "znshop_session"
 
 # session helpers
 
-def _get_session_token(znshop_session: str | None = Cookie(default=None)) -> str | None:
-    return znshop_session
-
 
 def _get_session_email(token: str | None) -> str | None:
     if not token:
@@ -253,21 +250,12 @@ async def store_delete(
 
 @router.get("/vendors", response_class=HTMLResponse, include_in_schema=False)
 async def vendors_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
-    try:
-        vendors_data = await api_get(request, "vendors", token)
-        stores_data = await api_get(request, "stores", token)
-        return templates.TemplateResponse("vendors.html", _ctx(request, "vendors", email,
-            vendors=vendors_data.get("vendors", []), stores=stores_data.get("stores", []), flash=None))
-    except Exception as exc:
-        logger.error("Error fetching vendors page data: %s", exc)
-        return templates.TemplateResponse("vendors.html", _ctx(
-            request,
-            "vendors",
-            email,
-            vendors=[],
-            stores=[],
-            flash={"type": "error", "msg": "Failed to load vendors"},
-        ))
+    vendors = await _safe_api_get(request, token, "vendors", "vendors", [])
+    stores = await _safe_api_get(request, token, "stores", "stores", [])
+    return templates.TemplateResponse(
+        "vendors.html",
+        _ctx(request, "vendors", email, vendors=vendors, stores=stores, flash=None),
+    )
 
 
 @router.post("/vendors/create", include_in_schema=False)
@@ -323,20 +311,12 @@ async def inventory_page(
     token: str = Depends(_require_token),
     store_id: str | None = None,
 ):
-    stores_data = {"stores": []}
-    try:
-        stores_data = await api_get(request, "stores", token)
-    except Exception as exc:
-        logger.error("Inventory stores query failed: %s", exc)
+    stores = await _safe_api_get(request, token, "stores", "stores", [])
     inventory = []
     if store_id:
-        try:
-            inv_data = await api_get(request, f"inventory/{store_id}", token)
-            inventory = inv_data.get("inventory", [])
-        except Exception as e:
-            logger.error(f"Inventory API error: {e}")
+        inventory = await _safe_api_get(request, token, f"inventory/{store_id}", "inventory", [])
     return templates.TemplateResponse("inventory.html", _ctx(request, "inventory", email,
-        stores=stores_data.get("stores", []), inventory=inventory, selected_store=store_id))
+        stores=stores, inventory=inventory, selected_store=store_id))
 
 
 # khata
