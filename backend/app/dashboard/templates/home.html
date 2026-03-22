@@ -4,6 +4,10 @@
 <div class="container">
   <h1>Dashboard</h1>
 
+  {% if flash %}
+  <div class="flash flash-{{ flash.type }}">{{ flash.msg }}</div>
+  {% endif %}
+
   <div class="stats-grid">
     <div class="stat-card">
       <div class="value">{{ stats.stores }}</div>
@@ -31,7 +35,7 @@
         <table>
           <thead><tr><th>Name</th><th>Owner</th><th>Phone</th></tr></thead>
           <tbody>
-            {% for s in recent_stores %}
+            {% for s in recent_stores or [] %}
             <tr>
               <td>{{ s.name }}</td>
               <td>{{ s.owner_name }}</td>
@@ -53,7 +57,7 @@
         <table>
           <thead><tr><th>SKU</th><th>Score</th><th>Time</th></tr></thead>
           <tbody>
-            {% for a in recent_alerts %}
+            {% for a in recent_alerts or [] %}
             <tr>
               <td>{{ a.sku_id }}</td>
               <td>
@@ -61,7 +65,7 @@
                   {{ a.demand_score }}
                 </span>
               </td>
-              <td style="font-size:.8rem;color:var(--muted)">{{ a.created_at[:16] }}</td>
+              <td style="font-size:.8rem;color:var(--muted)">{{ (a.created_at or '')[:16] }}</td>
             </tr>
             {% else %}
             <tr><td colspan="3" style="color:var(--muted)">No alerts</td></tr>

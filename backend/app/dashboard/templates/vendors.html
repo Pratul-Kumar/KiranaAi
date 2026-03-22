@@ -45,7 +45,7 @@
           <label>Store</label>
           <select name="store_id" required>
             <option value="">— select store —</option>
-            {% for s in stores %}
+            {% for s in stores or [] %}
             <option value="{{ s.id }}">{{ s.name }}</option>
             {% endfor %}
           </select>
@@ -54,7 +54,7 @@
           <label>Vendor</label>
           <select name="vendor_id" required>
             <option value="">— select vendor —</option>
-            {% for v in vendors %}
+            {% for v in vendors or [] %}
             <option value="{{ v.id }}">{{ v.name }}</option>
             {% endfor %}
           </select>
@@ -73,7 +73,7 @@
           <tr><th>Name</th><th>Phone</th><th>Category</th><th>Actions</th></tr>
         </thead>
         <tbody>
-          {% for v in vendors %}
+          {% for v in vendors or [] %}
           <tr>
             <td><strong>{{ v.name }}</strong></td>
             <td>{{ v.phone }}</td>

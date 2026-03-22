@@ -3,6 +3,7 @@ app/dashboard/router.py — HTML Admin Dashboard served at /admin
 Session-cookie based auth (separate from JWT REST API).
 """
 import logging
+import os
 import httpx
 from pathlib import Path
 
@@ -62,24 +63,50 @@ def _ctx(request: Request, active: str, email: str, **extra) -> dict:
     """Build base template context."""
     return {"request": request, "active": active, "session_email": email, **extra}
 
+
+def _admin_api_base(request: Request) -> str:
+    configured = (os.getenv("ZNSHOP_API_URL") or "").strip()
+    if configured:
+        return configured.rstrip("/")
+    return f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1"
+
+
+async def _safe_api_get(request: Request, token: str, path: str, key: str, default: list | dict) -> list | dict:
+    try:
+        payload = await api_get(request, path, token)
+        value = payload.get(key, default)
+        if value is None:
+            logger.warning("Dashboard API '%s' returned null for key '%s'", path, key)
+            return default
+        size = len(value) if isinstance(value, list) else 1
+        logger.info("Dashboard API '%s' success (items=%s)", path, size)
+        return value
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        body = exc.response.text[:500] if exc.response is not None else ""
+        logger.error("Dashboard API '%s' HTTP error %s: %s", path, status, body)
+    except Exception as exc:
+        logger.exception("Dashboard API '%s' request failed: %s", path, exc)
+    return default
+
 # API helpers
 async def api_get(request: Request, path: str, token: str) -> dict:
-    url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
-    async with httpx.AsyncClient() as client:
+    url = f"{_admin_api_base(request)}/admin/{path}"
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
         resp.raise_for_status()
         return resp.json()
 
 async def api_post(request: Request, path: str, token: str, json_data: dict) -> dict:
-    url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
-    async with httpx.AsyncClient() as client:
+    url = f"{_admin_api_base(request)}/admin/{path}"
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         resp = await client.post(url, json=json_data, headers={"Authorization": f"Bearer {token}"})
         resp.raise_for_status()
         return resp.json()
 
 async def api_delete(request: Request, path: str, token: str) -> dict:
-    url = f"{request.base_url.scheme}://{request.base_url.netloc}/api/v1/admin/{path}"
-    async with httpx.AsyncClient() as client:
+    url = f"{_admin_api_base(request)}/admin/{path}"
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         resp = await client.delete(url, headers={"Authorization": f"Bearer {token}"})
         resp.raise_for_status()
         return resp.json()
@@ -129,14 +156,11 @@ async def logout():
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_home(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
+    logger.info("Dashboard route entered for %s", email)
     try:
-        stores_data = await api_get(request, "stores", token)
-        vendors_data = await api_get(request, "vendors", token)
-        alerts_data = await api_get(request, "alerts", token)
-        
-        stores = stores_data.get("stores", [])
-        vendors = vendors_data.get("vendors", [])
-        alerts = alerts_data.get("alerts", [])
+        stores = await _safe_api_get(request, token, "stores", "stores", [])
+        vendors = await _safe_api_get(request, token, "vendors", "vendors", [])
+        alerts = await _safe_api_get(request, token, "alerts", "alerts", [])
         
         stats = {
             "stores": len(stores),
@@ -147,9 +171,17 @@ async def dashboard_home(request: Request, email: str = Depends(_require_session
         
         return templates.TemplateResponse("home.html", _ctx(request, "home", email,
             stats=stats, recent_stores=stores[:5], recent_alerts=alerts[:5]))
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Dashboard home API error: {e}")
-        return HTMLResponse("Dashboard error", status_code=500)
+    except Exception as exc:
+        logger.exception("Dashboard render failure: %s", exc)
+        return templates.TemplateResponse("home.html", _ctx(
+            request,
+            "home",
+            email,
+            stats={"stores": 0, "vendors": 0, "alerts": 0, "customers": 0},
+            recent_stores=[],
+            recent_alerts=[],
+            flash={"type": "error", "msg": "Dashboard loaded with limited data"},
+        ))
 
 # stores
 
@@ -203,10 +235,21 @@ async def store_delete(
 
 @router.get("/vendors", response_class=HTMLResponse, include_in_schema=False)
 async def vendors_page(request: Request, email: str = Depends(_require_session), token: str = Depends(_require_token)):
-    vendors_data = await api_get(request, "vendors", token)
-    stores_data = await api_get(request, "stores", token)
-    return templates.TemplateResponse("vendors.html", _ctx(request, "vendors", email,
-        vendors=vendors_data.get("vendors", []), stores=stores_data.get("stores", []), flash=None))
+    try:
+        vendors_data = await api_get(request, "vendors", token)
+        stores_data = await api_get(request, "stores", token)
+        return templates.TemplateResponse("vendors.html", _ctx(request, "vendors", email,
+            vendors=vendors_data.get("vendors", []), stores=stores_data.get("stores", []), flash=None))
+    except Exception as exc:
+        logger.error("Error fetching vendors page data: %s", exc)
+        return templates.TemplateResponse("vendors.html", _ctx(
+            request,
+            "vendors",
+            email,
+            vendors=[],
+            stores=[],
+            flash={"type": "error", "msg": "Failed to load vendors"},
+        ))
 
 
 @router.post("/vendors/create", include_in_schema=False)
@@ -262,7 +305,11 @@ async def inventory_page(
     token: str = Depends(_require_token),
     store_id: str | None = None,
 ):
-    stores_data = await api_get(request, "stores", token)
+    stores_data = {"stores": []}
+    try:
+        stores_data = await api_get(request, "stores", token)
+    except Exception as exc:
+        logger.error("Inventory stores query failed: %s", exc)
     inventory = []
     if store_id:
         try:
@@ -283,7 +330,11 @@ async def khata_page(
     token: str = Depends(_require_token),
     store_id: str | None = None,
 ):
-    stores_data = await api_get(request, "stores", token)
+    stores_data = {"stores": []}
+    try:
+        stores_data = await api_get(request, "stores", token)
+    except Exception as exc:
+        logger.error("Khata stores query failed: %s", exc)
     records = []
     if store_id:
         try:

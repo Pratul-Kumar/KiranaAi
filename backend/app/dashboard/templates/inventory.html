@@ -10,7 +10,7 @@
         <label>Select Store</label>
         <select name="store_id">
           <option value="">— all stores —</option>
-          {% for s in stores %}
+          {% for s in stores or [] %}
           <option value="{{ s.id }}" {% if selected_store == s.id %}selected{% endif %}>{{ s.name }}</option>
           {% endfor %}
         </select>
@@ -26,7 +26,7 @@
           <tr><th>SKU</th><th>Category</th><th>Stock</th><th>Last Updated</th></tr>
         </thead>
         <tbody>
-          {% for row in inventory %}
+          {% for row in inventory or [] %}
           <tr>
             <td>{{ row.skus.name if row.skus else '—' }}</td>
             <td>{{ row.skus.category_path if row.skus else '—' }}</td>

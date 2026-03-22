@@ -10,7 +10,7 @@
         <label>Select Store</label>
         <select name="store_id">
           <option value="">— select store —</option>
-          {% for s in stores %}
+          {% for s in stores or [] %}
           <option value="{{ s.id }}" {% if selected_store == s.id %}selected{% endif %}>{{ s.name }}</option>
           {% endfor %}
         </select>
@@ -26,7 +26,7 @@
           <tr><th>Customer</th><th>Phone</th><th>Balance (₹)</th><th>Lead Score</th><th>Last Payment</th></tr>
         </thead>
         <tbody>
-          {% for r in records %}
+          {% for r in records or [] %}
           <tr>
             <td>{{ r.customers.name if r.customers else '—' }}</td>
             <td>{{ r.customers.phone if r.customers else '—' }}</td>

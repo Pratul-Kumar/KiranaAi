@@ -43,7 +43,7 @@
           <tr><th>Name</th><th>Owner</th><th>Phone</th><th>Address</th><th>Actions</th></tr>
         </thead>
         <tbody>
-          {% for s in stores %}
+          {% for s in stores or [] %}
           <tr>
             <td><strong>{{ s.name }}</strong></td>
             <td>{{ s.owner_name }}</td>
