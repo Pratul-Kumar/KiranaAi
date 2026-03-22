@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from configs.config import get_settings
@@ -22,6 +22,29 @@ from postgrest.exceptions import APIError
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _set_access_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+def get_current_user(request: Request, admin_payload: dict = Depends(get_current_admin)) -> dict:
+    cookie_present = bool(request.cookies.get("access_token") or request.cookies.get("znshop_session"))
+    bearer_present = bool(request.headers.get("authorization"))
+    logger.info(
+        "Admin request auth status | bearer=%s cookie=%s user=%s",
+        bearer_present,
+        cookie_present,
+        admin_payload.get("sub"),
+    )
+    return admin_payload
 
 
 def _is_valid_admin_password(password: str) -> bool:
@@ -65,7 +88,7 @@ async def admin_root() -> dict:
     summary="OAuth2 token endpoint (used by Swagger Authorize button)",
     include_in_schema=True,
 )
-async def admin_token(form: OAuth2PasswordRequestForm = Depends()) -> TokenResponse:
+async def admin_token(response: Response, form: OAuth2PasswordRequestForm = Depends()) -> TokenResponse:
     """
     OAuth2 standard form-data login. Swagger's Authorize button calls this endpoint.
     Fields: username (= email), password.
@@ -78,6 +101,7 @@ async def admin_token(form: OAuth2PasswordRequestForm = Depends()) -> TokenRespo
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = create_access_token({"sub": form.username})
+    _set_access_cookie(response, token)
     logger.info("Admin token issued via /token for: %s", form.username)
     return TokenResponse(access_token=token)
 
@@ -87,7 +111,7 @@ async def admin_token(form: OAuth2PasswordRequestForm = Depends()) -> TokenRespo
     response_model=TokenResponse,
     summary="JSON login (curl / API clients)",
 )
-async def admin_login(body: AdminLoginRequest) -> TokenResponse:
+async def admin_login(body: AdminLoginRequest, response: Response) -> TokenResponse:
     """JSON body login for curl and API clients."""
     if body.email != settings.ADMIN_EMAIL or not _is_valid_admin_password(body.password):
         logger.warning("Failed login attempt for: %s", body.email)
@@ -96,6 +120,7 @@ async def admin_login(body: AdminLoginRequest) -> TokenResponse:
             detail="Invalid credentials",
         )
     token = create_access_token({"sub": body.email})
+    _set_access_cookie(response, token)
     logger.info("Admin token issued via /login for: %s", body.email)
     return TokenResponse(access_token=token)
 
@@ -115,11 +140,26 @@ async def create_store(body: StoreCreate) -> dict:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(err_dict))
 
 
-@router.get("/stores", dependencies=[Depends(get_current_admin)])
-async def list_stores() -> dict:
-    db = get_supabase_admin_client()
-    res = db.table("stores").select("*").order("created_at", desc=True).execute()
-    return {"stores": res.data}
+@router.get("/stores")
+async def list_stores(request: Request, user: dict = Depends(get_current_user)) -> dict:
+    logger.info("Stores API request received | path=%s user=%s", request.url.path, user.get("sub"))
+    try:
+        db = get_supabase_admin_client()
+        res = db.table("stores").select("*").order("created_at", desc=True).execute()
+        stores = res.data or []
+        logger.info("Stores API Supabase response | rows=%d", len(stores))
+        return {"stores": stores}
+    except APIError as exc:
+        err = exc.json() if hasattr(exc, "json") else {}
+        code = err.get("code") if isinstance(err, dict) else None
+        if code == "42P01":
+            logger.error("Stores table missing in Supabase (code=42P01). Run schema.sql migration.")
+        else:
+            logger.error("Stores Supabase API error: %s", err or str(exc))
+        return {"stores": []}
+    except Exception as exc:
+        logger.exception("Stores error: %s", exc)
+        return {"stores": []}
 
 
 @router.post("/vendors", dependencies=[Depends(get_current_admin)])

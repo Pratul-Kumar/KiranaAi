@@ -93,21 +93,34 @@ async def _safe_api_get(request: Request, token: str, path: str, key: str, defau
 async def api_get(request: Request, path: str, token: str) -> dict:
     url = f"{_admin_api_base(request)}/admin/{path}"
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+        resp = await client.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            cookies={"access_token": token, COOKIE_NAME: token},
+        )
         resp.raise_for_status()
         return resp.json()
 
 async def api_post(request: Request, path: str, token: str, json_data: dict) -> dict:
     url = f"{_admin_api_base(request)}/admin/{path}"
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        resp = await client.post(url, json=json_data, headers={"Authorization": f"Bearer {token}"})
+        resp = await client.post(
+            url,
+            json=json_data,
+            headers={"Authorization": f"Bearer {token}"},
+            cookies={"access_token": token, COOKIE_NAME: token},
+        )
         resp.raise_for_status()
         return resp.json()
 
 async def api_delete(request: Request, path: str, token: str) -> dict:
     url = f"{_admin_api_base(request)}/admin/{path}"
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        resp = await client.delete(url, headers={"Authorization": f"Bearer {token}"})
+        resp = await client.delete(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            cookies={"access_token": token, COOKIE_NAME: token},
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -137,6 +150,12 @@ async def login_submit(
     response = RedirectResponse("/admin", status_code=302)
     response.set_cookie(
         COOKIE_NAME, token,
+        httponly=True, samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    response.set_cookie(
+        "access_token", token,
         httponly=True, samesite="lax",
         secure=not settings.DEBUG,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,

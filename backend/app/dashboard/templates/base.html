@@ -98,5 +98,11 @@
 {% endblock %}
 
 {% block body %}{% endblock %}
+<script>
+  window.znshopAdminFetch = async function(path, options) {
+    const requestOptions = Object.assign({}, options || {}, { credentials: "include" });
+    return fetch(`/api/v1/admin/${path}`, requestOptions);
+  };
+</script>
 </body>
 </html>

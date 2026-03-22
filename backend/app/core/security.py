@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -15,7 +15,7 @@ settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Swagger posts credentials here
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/token", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -57,13 +57,17 @@ def verify_token(token: str) -> dict:
         )
 
 
-async def get_current_admin(token: str = Depends(oauth2_scheme)) -> dict:
-    """FastAPI dependency — validates the Bearer token and returns the admin payload."""
-    if not token:
-        logger.warning("Request arrived with no Bearer token")
+async def get_current_admin(request: Request, token: Optional[str] = Depends(oauth2_scheme)) -> dict:
+    """FastAPI dependency — validates admin JWT from Bearer auth or auth cookies."""
+    cookie_token = request.cookies.get("access_token") or request.cookies.get("znshop_session")
+    resolved_token = token or cookie_token
+    if not resolved_token:
+        logger.warning("Admin auth missing token (no bearer and no auth cookie)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated — provide Authorization: Bearer <token>",
+            detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return verify_token(token)
+    source = "bearer" if token else "cookie"
+    logger.info("Admin auth success path initialized via %s token", source)
+    return verify_token(resolved_token)
